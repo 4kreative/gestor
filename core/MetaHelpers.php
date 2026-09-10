@@ -65,7 +65,7 @@ function verificarErroMeta(string $accountId, string $token): array {
     $adsUrl = "https://graph.facebook.com/" . META_API_VERSION
             . "/act_{$accountId}/ads"
             . '?fields=name,effective_status,issues_info,campaign{name,effective_status},adset{effective_status}'
-            . '&effective_status=["WITH_ISSUES"]'
+            . '&effective_status=["WITH_ISSUES","DISAPPROVED"]'
             . '&limit=50'
             . "&access_token=" . urlencode($token);
     $ch2 = curl_init($adsUrl);
@@ -76,7 +76,26 @@ function verificarErroMeta(string $accountId, string $token): array {
     if (!empty($adsRes['data'])) {
         $errosVistos = []; // evitar duplicatas
         foreach ($adsRes['data'] as $ad) {
-            if (empty($ad['issues_info'])) continue;
+            $effectiveStatus = $ad['effective_status'] ?? '';
+            if (empty($ad['issues_info'])) {
+                if ($effectiveStatus === 'DISAPPROVED') {
+                    $adName   = $ad['name'] ?? 'Anuncio sem nome';
+                    $campName = $ad['campaign']['name'] ?? '';
+                    $campStatus  = $ad['campaign']['effective_status'] ?? '';
+                    $adsetStatus = $ad['adset']['effective_status'] ?? '';
+                    if (in_array($campStatus,  ['PAUSED','ARCHIVED','DELETED'])) continue;
+                    if (in_array($adsetStatus, ['PAUSED','ARCHIVED','DELETED'])) continue;
+                    $chave = md5($adName . '|' . $campName . '|DISAPPROVED');
+                    if (!isset($errosVistos[$chave])) {
+                        $errosVistos[$chave] = true;
+                        $linha = 'Anuncio "' . $adName . '"';
+                        if ($campName) $linha .= ' (campanha: ' . $campName . ')';
+                        $linha .= ': Anuncio reprovado pelo Meta';
+                        $erros[] = $linha;
+                    }
+                }
+                continue;
+            }
 
             // Ignorar se campanha ou adset pai estiver pausado
             $campStatus  = $ad['campaign']['effective_status'] ?? '';

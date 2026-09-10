@@ -1,0 +1,36 @@
+Options -Indexes
+RewriteEngine On
+
+# Bloqueia acesso direto ao .env
+<Files ".env">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Bloqueia arquivos sensíveis
+<FilesMatch "\.(ini|log|sh|env|bak|zip|md)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloqueia acesso web direto a SQL
+<FilesMatch "\.sql$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Redireciona tudo para index.php (exceto arquivos/pastas existentes)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?route=$1 [QSA,L]
+
+# Headers de segurança
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Content-Security-Policy — inclui todos os CDNs usados pelo sistema
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://graph.facebook.com https://api.anthropic.com https://api.groq.com https://api.openai.com https://googleads.googleapis.com https://oauth2.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+</IfModule>

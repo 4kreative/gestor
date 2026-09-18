@@ -1,5 +1,21 @@
 <?php
 class DashboardController {
+    /**
+     * Limpa o cache de métricas do dashboard (widget_metrics_* e metrics_* dessa
+     * conta), pra forçar recálculo na próxima carga. Botão "Atualizar" da tela,
+     * sem precisar rodar SQL direto no banco quando algum dado fica travado.
+     */
+    public function refreshCache(): void {
+        requireAuth(); csrfCheck();
+        $uid = currentUser()['id'];
+        $db  = Database::getInstance();
+        try {
+            $db->query("DELETE FROM dashboard_cache WHERE cache_key LIKE ? OR user_id = ?", ['widget_metrics_' . $uid . '_%', $uid]);
+        } catch (\Throwable $e) {}
+        flash('success', 'Cache do dashboard limpo. Recalculando com dados atuais.');
+        redirect('/dashboard');
+    }
+
     public function index(): void {
         requireAuth();
         $user = currentUser();
@@ -309,8 +325,8 @@ class DashboardController {
         try {
             // 1º: tenta cache válido (não expirado)
             $cacheRow = $db->query(
-                "SELECT payload, expires_at FROM dashboard_cache WHERE cache_key=? AND expires_at > NOW() LIMIT 1",
-                [$cacheKey]
+                "SELECT payload, expires_at FROM dashboard_cache WHERE cache_key=? AND expires_at > ? LIMIT 1",
+                [$cacheKey, date('Y-m-d H:i:s')]
             )->fetch();
             if ($cacheRow) {
                 $cachedMetrics = json_decode($cacheRow['payload'], true);
@@ -354,11 +370,16 @@ class DashboardController {
             )->fetchAll();
             $activeReports = decryptTokens($activeReports);
 
+            error_log('[Dashboard widget_metrics] Relatórios encontrados (' . count($activeReports) . '): ' . implode(' | ', array_map(fn($r) => 'id=' . $r['id'] . ' "' . $r['title'] . '" status=' . $r['status'] . ' ad_account_id=' . ($r['ad_account_id'] ?? '?') . ' platform=' . ($r['platform'] ?? '?'), $activeReports)));
+
             $widgetMetrics = []; // dados por relatório para os widgets
 
             foreach ($activeReports as $rep) {
-                if (empty($rep['meta_token'])) continue;
-
+                if (empty($rep['meta_token'])) {
+                    error_log('[Dashboard widget_metrics] SEM TOKEN — relatório id=' . ($rep['id'] ?? '?') . ' "' . ($rep['title'] ?? '') . '" | ad_account_id=' . ($rep['ad_account_id'] ?? '?') . ' | account_id=' . ($rep['meta_account_id'] ?? '?') . ' | client=' . ($rep['client_name'] ?? '?'));
+                    continue;
+                }
+                try {
                 $periodType = $rep['period_type'] ?? 'last_7_days';
                 [$start, $end] = ReportController::calcPeriodDates($periodType);
 
@@ -368,37 +389,42 @@ class DashboardController {
 
                 // Para MAX: usa a data mais antiga do banco para essa conta/campanha
                 if ($start === 'MAX') {
-                    $params2 = [$rep['ad_account_id']];
-                    $cw2 = '';
-                    if (!empty($campIds)) {
-                        $cw2 = ' AND campaign_id IN (' . implode(',', array_fill(0, count($campIds), '?')) . ')';
-                        $params2 = array_merge($params2, $campIds);
-                    }
-                    $minDate = $db->query(
-                        "SELECT MIN(date) FROM campaign_metrics WHERE ad_account_id=?{$cw2}",
-                        $params2
-                    )->fetchColumn();
-                    $start = $minDate ?: date('Y-m-d', strtotime('-90 days'));
+                    // Usa a mesma função robusta do "Enviar agora": checa o banco local
+                    // primeiro e, se não achar nada (campanha nunca sincronizada, ex:
+                    // pausada há tempos), pergunta pra própria Meta quando a campanha
+                    // começou de verdade, em vez de cair num fallback de só 90 dias
+                    // (que esconde campanhas antigas sem gasto recente).
+                    $start = ReportController::fetchCampaignStartDate(
+                        $rep['meta_account_id'], $rep['meta_token'], $campIds, (int)$rep['ad_account_id']
+                    );
                 }
 
                 // API com cache de 6h — rápido nas recargas, correto nos valores
                 // Com 30 clientes: primeira carga do dia demora ~30s, depois instantâneo
+                // Google não tem live-fetch aqui, vai direto no banco (evita gastar
+                // tempo tentando a API da Meta com um token que não é dela).
                 $m = null;
-                try {
-                    $m = ReportController::fetchMetricsCached(
-                        $rep['meta_account_id'], $rep['meta_token'],
-                        $start, $end, $campIds,
-                        (int)$rep['ad_account_id'], $uid, 360
-                    );
-                } catch (\Throwable $_em) { $m = null; }
-                // Fallback banco se API falhar
+                $isMetaRep = ($rep['platform'] ?? 'meta') !== 'google';
+                if ($isMetaRep) {
+                    try {
+                        $m = ReportController::fetchMetricsCached(
+                            $rep['meta_account_id'], $rep['meta_token'],
+                            $start, $end, $campIds,
+                            (int)$rep['ad_account_id'], $uid, 360
+                        );
+                    } catch (\Throwable $_em) { $m = null; }
+                }
+                // Fallback banco se API falhar (ou direto pra conta Google)
                 if (!$m || (float)($m['spend'] ?? 0) <= 0) {
                     $m = ReportController::fetchMetricsFromDB(
                         (int)$rep['ad_account_id'], $start, $end, $campIds
                     );
                 }
 
-                if (!$m || (float)($m['spend'] ?? 0) <= 0) continue;
+                if (!$m || (float)($m['spend'] ?? 0) <= 0) {
+                    error_log('[Dashboard widget_metrics] SEM DADO — relatório id=' . ($rep['id'] ?? '?') . ' "' . ($rep['title'] ?? '') . '" | platform=' . ($rep['platform'] ?? 'meta') . ' | ad_account_id=' . ($rep['ad_account_id'] ?? '?') . ' | account_id=' . ($rep['meta_account_id'] ?? '?') . ' | periodo=' . $start . ' a ' . $end . ' | campIds=' . implode(',', $campIds) . ' | m=' . json_encode($m));
+                    continue;
+                }
 
                 $spend    = (float)($m['spend']       ?? 0);
                 $ctr      = (float)($m['ctr']         ?? 0);
@@ -552,6 +578,7 @@ class DashboardController {
                     'camp_labels'  => $rep['camp_labels'] ?? '',
                     'client_name'  => $rep['client_name'] ?? $rep['account_name'] ?? '',
                     'account_name' => $rep['account_name'] ?? '',
+                    'platform'     => $rep['platform'] ?? 'meta',
                     'objetivo'     => $objetivo,
                     'period_start' => $start,
                     'period_end'   => $end,
@@ -573,6 +600,13 @@ class DashboardController {
                     'dias_pausada' => $diasPausada,   // quantos dias sem gasto
                     'peso_pausada' => round($pesoPausada, 2), // 0.0=ativa 1.0=parada total
                 ];
+                } catch (\Throwable $_erep) {
+                    // Um relatório com erro não pode travar os outros — registra
+                    // no log de erro do PHP pra dar pra investigar depois, e segue
+                    // pro próximo relatório da lista.
+                    error_log('[Dashboard widget_metrics] Falhou no relatório id=' . ($rep['id'] ?? '?') . ' "' . ($rep['title'] ?? '') . '": ' . $_erep->getMessage() . ' (linha ' . $_erep->getLine() . ')');
+                    continue;
+                }
             }
 
             $data['widget_metrics'] = $widgetMetrics;
@@ -769,40 +803,82 @@ class DashboardController {
             [$clientId, $uid]
         )->fetchAll();
 
-        // ── Métricas: API ao vivo para cada conta ─────────────────────────────
+        // ── Métricas: Meta e Google ficam SEPARADAS, cada uma com seu próprio
+        // total. Quando o cliente tem só uma plataforma, "metricas" já vem pronta
+        // com o que existir. Quando tem as duas, o front-end mostra um seletor
+        // Meta/Google (não soma as duas, evita misturar números de fontes
+        // diferentes que não são diretamente comparáveis).
         $metricas   = [];
-        $apiMetrics = null;
+        $accountsMeta   = array_values(array_filter($accounts, function($a){ return ($a['platform'] ?? 'meta') !== 'google'; }));
+        $accountsGoogle = array_values(array_filter($accounts, function($a){ return ($a['platform'] ?? 'meta') === 'google'; }));
 
         require_once __DIR__.'/ReportController.php';
 
-        foreach ($accounts as $acc) {
+        $buildMetaMetricas = function(?array $api) {
+            if (!$api) return [];
+            $msgs = (int)(max($api['msg'] ?? 0, $api['msg_all'] ?? 0));
+            return [
+                'spend'          => (float)($api['spend']         ?? 0),
+                'impressions'    => (int)  ($api['impressions']   ?? 0),
+                'clicks'         => (int)  ($api['clicks']        ?? 0),
+                'reach'          => (int)  ($api['reach']         ?? 0),
+                'ctr'            => (float)($api['ctr']           ?? 0),
+                'cpc'            => (float)($api['cpc']           ?? 0),
+                'cpm'            => (float)($api['cpm']           ?? 0),
+                'frequency'      => (float)($api['frequency']     ?? 0),
+                'messages'       => $msgs,
+                'leads'          => (int)  ($api['leads']         ?? 0),
+                'conversions'    => (int)  ($api['conversions']   ?? 0),
+                'purchases'      => (int)  ($api['purchase']      ?? 0),
+                'profile_visits' => (int)  ($api['profile_visit'] ?? 0),
+                'roas'           => (float)($api['roas']          ?? 0),
+            ];
+        };
+        $buildGoogleMetricas = function(?array $row) {
+            if (!$row) return [];
+            $impr  = (int)($row['impressions'] ?? 0);
+            $reach = (int)($row['reach'] ?? 0);
+            $spend = (float)($row['spend'] ?? 0);
+            $rev   = (float)($row['revenue'] ?? 0);
+            return [
+                'spend'          => $spend,
+                'impressions'    => $impr,
+                'clicks'         => (int)($row['clicks'] ?? 0),
+                'reach'          => $reach,
+                'ctr'            => (float)($row['ctr'] ?? 0),
+                'cpc'            => (float)($row['cpc'] ?? 0),
+                'cpm'            => (float)($row['cpm'] ?? 0),
+                'frequency'      => $reach > 0 ? round($impr / $reach, 2) : 0,
+                'messages'       => (int)($row['messages'] ?? 0),
+                'leads'          => (int)($row['leads'] ?? 0),
+                'conversions'    => (int)($row['conversions'] ?? 0),
+                'purchases'      => (int)($row['purchases'] ?? 0),
+                'profile_visits' => (int)($row['profile_visits'] ?? 0),
+                'roas'           => $spend > 0 ? round($rev / $spend, 2) : 0,
+            ];
+        };
+
+        // ── Agrega Meta (ao vivo, com fallback pro banco) ──
+        $apiMetrics = null;
+        foreach ($accountsMeta as $acc) {
             $accFull = decryptTokens($db->query("SELECT * FROM ad_accounts WHERE id=?", [$acc['id']])->fetch() ?: []);
             if (!$accFull || empty($accFull['access_token'])) continue;
             try {
-                // Para período máximo, usa fetchMetricsMeta sem filtro de campanhas
-                if ($period === 'maximum') {
-                    $m = ReportController::fetchMetricsMetaAllStatus(
+                $m = ReportController::fetchMetricsMetaAllStatus(
+                    $accFull['account_id'], $accFull['access_token'], $start, $end
+                );
+                if ($m === null) {
+                    $m = ReportController::fetchMetricsMeta(
                         $accFull['account_id'], $accFull['access_token'], $start, $end
                     );
-                } else {
-                    $m = ReportController::fetchMetricsMetaAllStatus(
-                        $accFull['account_id'], $accFull['access_token'], $start, $end
-                    );
-                    if ($m === null) {
-                        $m = ReportController::fetchMetricsMeta(
-                            $accFull['account_id'], $accFull['access_token'], $start, $end
-                        );
-                    }
                 }
                 if ($m !== null) {
                     if (!$apiMetrics) {
                         $apiMetrics = $m;
                     } else {
-                        // Soma métricas de múltiplas contas
                         foreach (['spend','impressions','clicks','reach','msg','msg_all','leads','conversions','purchase','profile_visit'] as $k) {
                             $apiMetrics[$k] = ($apiMetrics[$k] ?? 0) + ($m[$k] ?? 0);
                         }
-                        // Recalcula médias
                         $apiMetrics['ctr']       = $apiMetrics['impressions'] > 0
                             ? round($apiMetrics['clicks']      / $apiMetrics['impressions'] * 100, 2) : 0;
                         $apiMetrics['cpc']       = $apiMetrics['clicks'] > 0
@@ -815,35 +891,17 @@ class DashboardController {
                 }
             } catch (\Throwable $e) {}
         }
-
-        if ($apiMetrics) {
-            $msgs = (int)(max($apiMetrics['msg'] ?? 0, $apiMetrics['msg_all'] ?? 0));
-            $metricas = [
-                'spend'          => (float)($apiMetrics['spend']         ?? 0),
-                'impressions'    => (int)  ($apiMetrics['impressions']   ?? 0),
-                'clicks'         => (int)  ($apiMetrics['clicks']        ?? 0),
-                'reach'          => (int)  ($apiMetrics['reach']         ?? 0),
-                'ctr'            => (float)($apiMetrics['ctr']           ?? 0),
-                'cpc'            => (float)($apiMetrics['cpc']           ?? 0),
-                'cpm'            => (float)($apiMetrics['cpm']           ?? 0),
-                'frequency'      => (float)($apiMetrics['frequency']     ?? 0),
-                'messages'       => $msgs,
-                'leads'          => (int)  ($apiMetrics['leads']         ?? 0),
-                'conversions'    => (int)  ($apiMetrics['conversions']   ?? 0),
-                'purchases'      => (int)  ($apiMetrics['purchase']      ?? 0),
-                'profile_visits' => (int)  ($apiMetrics['profile_visit'] ?? 0),
-                'roas'           => (float)($apiMetrics['roas']          ?? 0),
-            ];
-        } elseif (!empty($accIds)) {
-            // Fallback: banco local
-            $phs = implode(',', array_fill(0, count($accIds), '?'));
-            $params = array_merge($accIds, [$start, $end]);
-            $row = $db->query(
+        $metaIds = array_column($accountsMeta, 'id');
+        if (!$apiMetrics && !empty($metaIds)) {
+            // Fallback: banco local (mesmo formato "cru" da API pra reaproveitar buildMetaMetricas)
+            $phs = implode(',', array_fill(0, count($metaIds), '?'));
+            $params = array_merge($metaIds, [$start, $end]);
+            $rowFb = $db->query(
                 "SELECT SUM(spend) AS spend, SUM(impressions) AS impressions,
                         SUM(clicks) AS clicks, SUM(conversions) AS conversions,
-                        SUM(messages) AS messages, SUM(leads) AS leads,
-                        SUM(reach) AS reach, SUM(purchases) AS purchases,
-                        SUM(profile_visits) AS profile_visits,
+                        SUM(messages) AS msg, SUM(leads) AS leads,
+                        SUM(reach) AS reach, SUM(purchases) AS purchase,
+                        SUM(profile_visits) AS profile_visit,
                         AVG(ctr) AS ctr, AVG(cpc) AS cpc, AVG(cpm) AS cpm,
                         CASE WHEN SUM(reach)>0 THEN ROUND(SUM(impressions)/SUM(reach),2) ELSE 0 END AS frequency,
                         AVG(roas) AS roas
@@ -851,7 +909,38 @@ class DashboardController {
                  WHERE ad_account_id IN ($phs) AND date BETWEEN ? AND ?",
                 $params
             )->fetch();
-            $metricas = $row ?: [];
+            if ($rowFb) $apiMetrics = $rowFb;
+        }
+        $metricasMeta = $buildMetaMetricas($apiMetrics);
+
+        // ── Agrega Google (sempre via banco — sem live-fetch pra alerta/dashboard) ──
+        $googleAgg = null;
+        foreach ($accountsGoogle as $acc) {
+            $m = ReportController::fetchMetricsFromDB((int)$acc['id'], $start, $end);
+            if ($m !== null) {
+                if (!$googleAgg) {
+                    $googleAgg = $m;
+                } else {
+                    foreach (['spend','impressions','clicks','reach','conversions','revenue','messages','purchases','profile_visits','leads'] as $k) {
+                        $googleAgg[$k] = ($googleAgg[$k] ?? 0) + ($m[$k] ?? 0);
+                    }
+                    $googleAgg['ctr'] = $googleAgg['impressions'] > 0 ? round($googleAgg['clicks'] / $googleAgg['impressions'] * 100, 2) : 0;
+                    $googleAgg['cpc'] = $googleAgg['clicks']      > 0 ? round($googleAgg['spend']  / $googleAgg['clicks'], 2)      : 0;
+                    $googleAgg['cpm'] = $googleAgg['impressions'] > 0 ? round($googleAgg['spend']  / $googleAgg['impressions'] * 1000, 2) : 0;
+                }
+            }
+        }
+        $metricasGoogle = $buildGoogleMetricas($googleAgg);
+
+        $temMeta   = !empty($accountsMeta);
+        $temGoogle = !empty($accountsGoogle);
+        if ($temMeta && $temGoogle) {
+            // Cliente com as duas plataformas: manda separado, front decide o que mostrar
+            $metricas = $metricasMeta; // usado por quem ainda espera "metricas" simples (compat)
+        } elseif ($temGoogle) {
+            $metricas = $metricasGoogle;
+        } else {
+            $metricas = $metricasMeta;
         }
 
         // Análises IA do cliente (últimas 5)
@@ -867,14 +956,18 @@ class DashboardController {
         }
 
         echo json_encode([
-            'success'       => true,
-            'client'        => $client,
-            'accounts'      => $accounts,
-            'reports'       => $reports,
-            'alerts'        => $alerts,
-            'metricas'      => $metricas,
-            'ai_logs'       => $aiLogs,
-            'periodo_label' => $periodoLabel,
+            'success'         => true,
+            'client'          => $client,
+            'accounts'        => $accounts,
+            'reports'         => $reports,
+            'alerts'          => $alerts,
+            'metricas'        => $metricas,
+            'metricas_meta'   => $metricasMeta,
+            'metricas_google' => $metricasGoogle,
+            'tem_meta'        => $temMeta,
+            'tem_google'      => $temGoogle,
+            'ai_logs'         => $aiLogs,
+            'periodo_label'   => $periodoLabel,
         ]);
     }
 
@@ -891,6 +984,8 @@ class DashboardController {
         foreach ($widgetMetrics as $wm) {
             $issues   = [];
             $urgencia = 0;
+            $platform = $wm['platform'] ?? 'meta';
+            $isGoogle = $platform === 'google';
 
             $ctr         = (float)($wm['ctr']         ?? 0);
             $freq        = (float)($wm['freq']         ?? 0);
@@ -908,15 +1003,19 @@ class DashboardController {
                 $urgencia += 80;
             }
 
-            // CTR fraco / baixo (últimos 7 dias via period do relatório)
-            if ($ctr > 0 && $ctr < 0.5) {
+            // CTR fraco / baixo — a barra saudável do Google é o dobro da Meta
+            // (CTR saudável: >1,5% Meta / >3% Google), então os limiares também
+            // dobram pra Google, senão campanha boa de Google seria sinalizada à toa.
+            $ctrRuim  = $isGoogle ? 1.0 : 0.5;
+            $ctrFraco = $isGoogle ? 2.0 : 1.0;
+            if ($ctr > 0 && $ctr < $ctrRuim) {
                 $issues[] = [
                     'label' => 'CTR baixo (' . round($ctr, 2) . '%)',
                     'color' => '#e74c3c',
                     'bg'    => 'rgba(231,76,60,.18)',
                 ];
                 $urgencia += 40;
-            } elseif ($ctr >= 0.5 && $ctr < 1.0) {
+            } elseif ($ctr >= $ctrRuim && $ctr < $ctrFraco) {
                 $issues[] = [
                     'label' => 'CTR fraco (' . round($ctr, 2) . '%)',
                     'color' => '#F39C12',
@@ -925,7 +1024,10 @@ class DashboardController {
                 $urgencia += 20;
             }
 
-            // Frequência alta / elevada
+            // Frequência alta / elevada — conceito de saturação de audiência típico
+            // de rede social. O Google não reporta isso do mesmo jeito, então essa
+            // checagem só roda pra Meta, pra não gerar alarme falso sem base real.
+            if (!$isGoogle) {
             if ($freq > 3.5) {
                 $issues[] = [
                     'label' => 'Freq. alta (' . round($freq, 1) . ')',
@@ -941,6 +1043,7 @@ class DashboardController {
                 ];
                 $urgencia += 15;
             }
+            }
 
             if (empty($issues)) continue;
 
@@ -950,6 +1053,7 @@ class DashboardController {
                 'client_name' => $wm['client_name'] ?? '',
                 'account_name'=> $wm['account_name'] ?? '',
                 'camp_labels' => $wm['camp_labels'] ?? '',
+                'platform'    => $platform,
                 'status'      => 'ACTIVE',
                 'issues'      => $issues,
                 'urgencia'    => $urgencia,

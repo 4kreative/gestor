@@ -5,7 +5,7 @@ class ReportController {
         requireAuth();
         $uid  = currentUser()['id'];
         $db   = Database::getInstance();
-        $templates = $db->query("SELECT id,name,content FROM message_templates WHERE user_id=? ORDER BY name",[$uid])->fetchAll();
+        $templates = $db->query("SELECT id,name,content,platform FROM message_templates WHERE user_id=? ORDER BY name",[$uid])->fetchAll();
         $accounts  = $db->query("SELECT id,account_name,account_id,platform FROM ad_accounts WHERE user_id=? AND status='active' ORDER BY account_name",[$uid])->fetchAll();
         $instances = $db->query("SELECT id,instance_name,phone_number FROM whatsapp_instances WHERE user_id=? AND status='connected'",[$uid])->fetchAll();
         $clients   = $db->query("SELECT id,name,phone,company FROM clients WHERE user_id=? AND status='active' ORDER BY name",[$uid])->fetchAll();
@@ -15,9 +15,15 @@ class ReportController {
         $pdfTemplates = [];
         try {
             $pdfTemplates = $db->query(
-                "SELECT id, name, updated_at FROM pdf_templates WHERE user_id=? ORDER BY updated_at DESC",
+                "SELECT id, name, updated_at, config FROM pdf_templates WHERE user_id=? ORDER BY updated_at DESC",
                 [$uid]
             )->fetchAll();
+            foreach ($pdfTemplates as &$__pt) {
+                $__cfg = json_decode($__pt['config'] ?? '{}', true);
+                $__pt['platform'] = $__cfg['platform'] ?? null; // null = serve pra Meta e Google
+                unset($__pt['config']);
+            }
+            unset($__pt);
         } catch (\Throwable $e) {}
 
         $page = max(1, (int)($_GET['page'] ?? 1));
@@ -49,7 +55,7 @@ class ReportController {
         $db       = Database::getInstance();
         $clients  = $db->query("SELECT id,name FROM clients WHERE user_id=? AND status='active' ORDER BY name", [$uid])->fetchAll();
         $accounts = $db->query("SELECT id,account_name,platform FROM ad_accounts WHERE user_id=? AND status='active' ORDER BY account_name", [$uid])->fetchAll();
-        $templates= $db->query("SELECT id,name,content FROM message_templates WHERE user_id=?", [$uid])->fetchAll();
+        $templates= $db->query("SELECT id,name,content,platform FROM message_templates WHERE user_id=?", [$uid])->fetchAll();
         require_once __DIR__.'/../views/reports/create.php';
     }
 
@@ -1461,8 +1467,8 @@ class ReportController {
         try {
             $cached = $db->query(
                 "SELECT payload FROM dashboard_cache
-                 WHERE cache_key = ? AND user_id = ? AND expires_at > NOW() LIMIT 1",
-                [$cacheKey, $userId]
+                 WHERE cache_key = ? AND user_id = ? AND expires_at > ? LIMIT 1",
+                [$cacheKey, $userId, date('Y-m-d H:i:s')]
             )->fetch();
             if ($cached) return json_decode($cached['payload'], true);
         } catch (\Throwable $e) {}
@@ -3100,7 +3106,14 @@ $ms";
             [$start, $end] = self::calcPeriodDates($r['period_type'] ?? 'last_7_days');
         }
 
+        $isMetaReport = (($r['platform'] ?? 'meta') !== 'google');
+
         if ($start === 'MAX') {
+            // fetchCampaignStartDate já checa o banco local (campaign_metrics) primeiro,
+            // pra qualquer plataforma — só tenta refinar via API da Meta depois, e
+            // se isso falhar (ex: token de Google, que a API da Meta rejeita), ela
+            // mesma cai pro valor do banco sem quebrar nada. Por isso é segura chamar
+            // aqui mesmo sem saber a plataforma com certeza.
             $start = !empty($r['access_token'])
                 ? self::fetchCampaignStartDate($r['meta_account_id'], $r['access_token'], $campIds, (int)$r['ad_account_id'])
                 : date('Y-m-d', strtotime('-90 days'));
@@ -3112,7 +3125,7 @@ $ms";
         $activePeriod = $periodGet ?: ($r['period_type'] ?? 'last_7_days');
 
         $m = null;
-        if (!empty($r['meta_account_id']) && !empty($r['access_token'])) {
+        if ($isMetaReport && !empty($r['meta_account_id']) && !empty($r['access_token'])) {
             try { $m = self::fetchMetricsMeta($r['meta_account_id'], $r['access_token'], $start, $end, $campIds); }
             catch (\Throwable $e) {}
         }
@@ -3121,7 +3134,7 @@ $ms";
         // Período anterior para comparativo
         [$pStart, $pEnd] = self::calcPreviousPeriod($start, $end);
         $pm = null;
-        if (!empty($r['meta_account_id']) && !empty($r['access_token'])) {
+        if ($isMetaReport && !empty($r['meta_account_id']) && !empty($r['access_token'])) {
             try { $pm = self::fetchMetricsMeta($r['meta_account_id'], $r['access_token'], $pStart, $pEnd, $campIds); }
             catch (\Throwable $e) {}
         }

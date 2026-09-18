@@ -1394,13 +1394,60 @@ class AdsAgentController {
         $acc = $db->query(
             "SELECT aa.*, c.name AS client_name FROM ad_accounts aa
              LEFT JOIN clients c ON c.id=aa.client_id
-             WHERE aa.id=? AND aa.user_id=? AND aa.platform='meta'",
+             WHERE aa.id=? AND aa.user_id=?",
             [$accountId, $uid]
         )->fetch();
         if (!$acc) { echo json_encode(['ok'=>false,'error'=>'Conta não encontrada']); return; }
         $acc = decryptTokens($acc);
         if (empty($acc['access_token'])) {
             echo json_encode(['ok'=>false,'error'=>'Token expirado. Reconecte em Contas de Anúncio.']); return;
+        }
+
+        // ── Google Ads: upload de imagem vai pra Assets API, formato totalmente
+        // diferente do Meta. Vídeo não é suportado — o Google Ads não aceita
+        // upload direto de arquivo de vídeo, só referência a vídeo já hospedado
+        // no YouTube, então avisamos isso em vez de tentar simular algo que a
+        // API não faz.
+        if ($acc['platform'] === 'google') {
+            if ($isVideo) {
+                echo json_encode(['ok'=>false,'error'=>'O Google Ads não aceita upload direto de vídeo — só referência a um vídeo já publicado no YouTube. Envie pro YouTube primeiro e use o link/ID dele.']);
+                return;
+            }
+            $body = [
+                'operations' => [[
+                    'create' => [
+                        'name'       => 'img_' . time(),
+                        'type'       => 'IMAGE',
+                        'imageAsset' => ['data' => base64_encode($binary)],
+                    ],
+                ]],
+            ];
+            $url = "https://googleads.googleapis.com/v18/customers/{$acc['account_id']}/assets:mutate";
+            $ch  = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => json_encode($body),
+                CURLOPT_HTTPHEADER     => [
+                    'Authorization: Bearer ' . $acc['access_token'],
+                    'developer-token: ' . GOOGLE_DEVELOPER_TOKEN,
+                    'Content-Type: application/json',
+                ],
+                CURLOPT_TIMEOUT       => 60,
+                CURLOPT_SSL_VERIFYPEER => true,
+            ]);
+            $resp = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $data = json_decode($resp, true);
+            $assetResourceName = $data['results'][0]['resourceName'] ?? null;
+            if (!$assetResourceName) {
+                $errMsg = $data['error']['message'] ?? "Upload de imagem pro Google Ads falhou (HTTP $code)";
+                echo json_encode(['ok'=>false,'error'=>$errMsg]);
+                return;
+            }
+            echo json_encode(['ok'=>true,'type'=>'image','hash'=>$assetResourceName,'platform'=>'google']);
+            return;
         }
 
         // Save to temp file for multipart upload

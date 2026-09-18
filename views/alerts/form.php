@@ -177,11 +177,18 @@ $diasAtivos   = explode(',', $alert['dias_semana'] ?? '1,2,3,4,5');
       <!-- WhatsApp -->
       <div class="form-group">
         <label class="form-label">Instância WhatsApp</label>
-        <?php $defaultInstId = $instances[0]['id'] ?? null; ?>
+        <?php
+          $defaultInstId = $instances[0]['id'] ?? null;
+          // Se o whatsapp_id salvo no alerta (ex: de uma instância já apagada) não
+          // existir mais na lista de instâncias conectadas agora, usa a atual em vez
+          // de deixar o campo sem nenhuma opção selecionada.
+          $savedInstIdValido = array_filter($instances, fn($i) => $i['id'] == ($alert['whatsapp_id'] ?? null));
+          $instIdEfetivo = !empty($savedInstIdValido) ? $alert['whatsapp_id'] : $defaultInstId;
+        ?>
         <select name="whatsapp_id" class="form-control">
           <option value="">— Selecione —</option>
           <?php foreach ($instances as $inst): ?>
-          <?php $selInst = ($alert['whatsapp_id'] ?? $defaultInstId) == $inst['id']; ?>
+          <?php $selInst = $instIdEfetivo == $inst['id']; ?>
           <option value="<?= $inst['id'] ?>" <?= $selInst?'selected':'' ?>>
             <?= e($inst['instance_name']) ?><?= $inst['phone_number']?' ('.$inst['phone_number'].')':'' ?>
           </option>

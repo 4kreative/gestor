@@ -263,27 +263,27 @@ ob_start();
       <div class="form-group">
         <label class="form-label">Tipo de alerta</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <label class="type-card active" onclick="setType(this,'saldo_minimo')">
+          <label class="type-card active" data-plats="meta" onclick="setType(this,'saldo_minimo')">
             <input type="radio" name="type" value="saldo_minimo" checked style="display:none">
             <span class="material-icons-outlined" style="font-size:15px;color:var(--warn)">account_balance_wallet</span> Saldo mínimo
           </label>
-          <label class="type-card" onclick="setType(this,'erro_conta')">
+          <label class="type-card" data-plats="meta" onclick="setType(this,'erro_conta')">
             <input type="radio" name="type" value="erro_conta" style="display:none">
             <span class="material-icons-outlined" style="font-size:15px;color:var(--danger)">error_outline</span> Erro na conta
           </label>
-          <label class="type-card" onclick="setType(this,'ctr_baixo')">
+          <label class="type-card" data-plats="meta,google" onclick="setType(this,'ctr_baixo')">
             <input type="radio" name="type" value="ctr_baixo" style="display:none">
             <span class="material-icons-outlined" style="font-size:15px;color:#3498DB">trending_down</span> CTR baixo
           </label>
-          <label class="type-card" onclick="setType(this,'cpc_alto')">
+          <label class="type-card" data-plats="meta,google" onclick="setType(this,'cpc_alto')">
             <input type="radio" name="type" value="cpc_alto" style="display:none">
             <span class="material-icons-outlined" style="font-size:15px;color:#E74C3C">price_change</span> CPC alto
           </label>
-          <label class="type-card" onclick="setType(this,'custo_conv_alto')">
+          <label class="type-card" data-plats="meta,google" onclick="setType(this,'custo_conv_alto')">
             <input type="radio" name="type" value="custo_conv_alto" style="display:none">
             <span class="material-icons-outlined" style="font-size:15px;color:#E67E22">money_off</span> Custo/conv alto
           </label>
-          <label class="type-card" onclick="setType(this,'roas_baixo')">
+          <label class="type-card" data-plats="meta,google" onclick="setType(this,'roas_baixo')">
             <input type="radio" name="type" value="roas_baixo" style="display:none">
             <span class="material-icons-outlined" style="font-size:15px;color:#F39C12">show_chart</span> ROAS baixo
           </label>
@@ -715,6 +715,22 @@ function setPlatform(el,val){
     o.style.display=(o.value===''||o.dataset.p===val)?'':'none';
   });
   document.getElementById('accSel').value='';
+
+  // Saldo mínimo e Erro na conta só existem pra Meta (a API do Google não expõe
+  // saldo, e a checagem de erro de conta hoje só sabe ler o formato da Meta).
+  var algumaEscondidaEstavaAtiva = false;
+  document.querySelectorAll('.type-card').forEach(function(card){
+    var plats = (card.dataset.plats||'meta,google').split(',');
+    var compativel = plats.includes(val);
+    card.style.display = compativel ? '' : 'none';
+    if (!compativel && card.classList.contains('active')) algumaEscondidaEstavaAtiva = true;
+  });
+  // Se o tipo selecionado não existe mais nessa plataforma, troca pro primeiro disponível
+  if (algumaEscondidaEstavaAtiva) {
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.type-card'));
+    var primeiroDisponivel = cards.find(function(c){ return c.style.display !== 'none'; });
+    if (primeiroDisponivel) primeiroDisponivel.click();
+  }
 }
 function setDestino(el,val){
   document.querySelectorAll('.dest-card').forEach(c=>c.classList.remove('active'));

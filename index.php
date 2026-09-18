@@ -34,6 +34,7 @@ $publicRoutes = [
 // Rotas protegidas
 $privateRoutes = [
     '/dashboard'              => ['DashboardController', 'index'],
+    '/dashboard/refresh-cache' => ['DashboardController', 'refreshCache'],
 
     '/reports'                => ['ReportController', 'index'],
     '/reports/create'         => ['ReportController', 'create'],
@@ -79,6 +80,7 @@ $privateRoutes = [
     '/accounts/connect/google'=> ['AccountController', 'connectGoogle'],
     '/accounts/delete'        => ['AccountController', 'delete'],
     '/accounts/delete-bulk'   => ['AccountController', 'deleteBulk'],
+    '/accounts/clean-orphans' => ['AccountController', 'cleanOrphans'],
     '/accounts/sync'           => ['AccountController', 'sync'],
     '/accounts/link-client'    => ['AccountController', 'linkClient'],
     '/api/accounts/campaigns'   => ['AccountController', 'apiCampaigns'],
@@ -150,7 +152,6 @@ $privateRoutes = [
     '/api/integrations/groups'    => ['IntegrationController', 'apiGroups'],
     '/webhook/integration'        => ['IntegrationController', 'webhookReceive'],
     '/webhook/elementor'          => ['IntegrationController', 'elementorReceive'],
-    '/webhook/tintim'             => ['IntegrationController', 'tintimReceive'],
     '/webhook/facebook-lead'      => ['IntegrationController', 'facebookLeadReceive'],
 
     '/help'                       => ['HelpController', 'index'],
@@ -181,9 +182,7 @@ $apiRoutes = [
     // Rotas de integração via /api/integrations/* (compatibilidade com sistemas externos)
     '/api/integrations/webhook'       => ['IntegrationController', 'webhookReceive'],
     '/api/integrations/elementor'     => ['IntegrationController', 'elementorReceive'],
-    '/api/integrations/tintim'        => ['IntegrationController', 'tintimReceive'],
     '/api/integrations/facebook_lead' => ['IntegrationController', 'facebookLeadReceive'],
-    '/api/integrations/autentique'    => ['IntegrationController', 'webhookReceive'],
 ];
 
 // Resolve rota

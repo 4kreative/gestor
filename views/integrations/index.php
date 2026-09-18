@@ -11,7 +11,6 @@ $csrf = $_SESSION['csrf_token'];
 .integr-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .integr-icon.webhook{background:rgba(99,102,241,.15)}
 .integr-icon.elementor{background:rgba(144,0,255,.12)}
-.integr-icon.tintim{background:rgba(239,68,68,.12)}
 .integr-icon.facebook_lead{background:rgba(24,119,242,.12)}
 .integr-title{font-size:14px;font-weight:700;color:var(--txt)}
 .integr-desc{font-size:12px;color:var(--txt2);line-height:1.6}
@@ -43,7 +42,6 @@ $csrf = $_SESSION['csrf_token'];
 .msg-preview{background:#075e54;border-radius:10px;padding:12px 14px;font-size:13px;color:#fff;line-height:1.6;white-space:pre-wrap;min-height:80px}
 .fb-steps{background:var(--bg3);border-radius:var(--radius);padding:14px;font-size:12px;color:var(--txt2);line-height:1.8}
 .fb-steps ol{padding-left:16px}
-.integr-icon.autentique{background:rgba(16,185,129,.12)}
 .integr-card.em-breve{opacity:.55;pointer-events:none;user-select:none;position:relative}
 .em-breve-badge{position:absolute;top:12px;right:12px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;letter-spacing:.5px}
 .integr-card{position:relative}
@@ -61,7 +59,7 @@ $csrf = $_SESSION['csrf_token'];
 
   <!-- WEBHOOK -->
   <?php $wh = array_filter($integrations, fn($i)=>$i['type']==='webhook'); ?>
-  <div class="integr-card em-breve"><span class="em-breve-badge">Em breve</span>
+  <div class="integr-card">
     <div class="integr-card-header">
       <div class="integr-icon webhook">🔗</div>
       <div>
@@ -89,7 +87,7 @@ $csrf = $_SESSION['csrf_token'];
 
   <!-- ELEMENTOR -->
   <?php $el = array_filter($integrations, fn($i)=>$i['type']==='elementor'); ?>
-  <div class="integr-card em-breve"><span class="em-breve-badge">Em breve</span>
+  <div class="integr-card">
     <div class="integr-card-header">
       <div class="integr-icon elementor">🅴</div>
       <div>
@@ -115,37 +113,9 @@ $csrf = $_SESSION['csrf_token'];
     <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="openCreate('elementor')">+ Nova integração</button>
   </div>
 
-  <!-- TINTIM -->
-  <?php $tt = array_filter($integrations, fn($i)=>$i['type']==='tintim'); ?>
-  <div class="integr-card em-breve"><span class="em-breve-badge">Em breve</span>
-    <div class="integr-card-header">
-      <div class="integr-icon tintim">🤖</div>
-      <div>
-        <div class="integr-title">Tintim</div>
-        <div class="integr-count"><?= count($tt) ?>/∞ conexões</div>
-      </div>
-      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openSettings('tintim')">⚙️</button>
-    </div>
-    <div class="integr-desc">Conecte o Tintim ao sistema e tenha o rastreamento preciso de leads gerados, diretamente nos relatórios.</div>
-    <div class="integr-list" id="list-tintim">
-      <?php foreach($tt as $i): ?>
-      <div class="integr-item" id="item-<?= $i['id'] ?>">
-        <div class="<?= $i['status']==='active'?'dot-active':'dot-inactive' ?>"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:var(--txt)"><?= e($i['name']) ?></div>
-          <div class="integr-item-url" onclick="copyEndpoint('<?= e($i['endpoint']) ?>')" title="Clique para copiar"><?= e($i['endpoint']) ?></div>
-        </div>
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="openEditById(<?= $i['id'] ?>)" data-integration="<?= htmlspecialchars(json_encode($i), ENT_QUOTES) ?>" id="btn-edit-<?= $i['id'] ?>" title="Configurar">⚙️</button>
-        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteIntegration(<?= $i['id'] ?>)">🗑</button>
-      </div>
-      <?php endforeach; ?>
-    </div>
-    <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="openCreate('tintim')">+ Nova integração</button>
-  </div>
-
   <!-- FACEBOOK LEAD ADS -->
   <?php $fb = array_filter($integrations, fn($i)=>$i['type']==='facebook_lead'); ?>
-  <div class="integr-card em-breve"><span class="em-breve-badge">Em breve</span>
+  <div class="integr-card">
     <div class="integr-card-header">
       <div class="integr-icon facebook_lead" style="font-size:20px;color:#1877F2">f</div>
       <div>
@@ -169,34 +139,6 @@ $csrf = $_SESSION['csrf_token'];
       <?php endforeach; ?>
     </div>
     <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="openCreate('facebook_lead')">+ Nova integração</button>
-  </div>
-
-  <!-- AUTENTIQUE -->
-  <?php $au = array_filter($integrations, fn($i)=>$i['type']==='autentique'); ?>
-  <div class="integr-card em-breve"><span class="em-breve-badge">Em breve</span>
-    <div class="integr-card-header">
-      <div class="integr-icon autentique">✍️</div>
-      <div>
-        <div class="integr-title">Autentique</div>
-        <div class="integr-count"><?= count($au) ?>/∞ conexões</div>
-      </div>
-      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openSettings('autentique')">⚙️</button>
-    </div>
-    <div class="integr-desc">Receba notificações no WhatsApp quando um documento for assinado, recusado ou visualizado na plataforma Autentique.</div>
-    <div class="integr-list" id="list-autentique">
-      <?php foreach($au as $i): ?>
-      <div class="integr-item" id="item-<?= $i['id'] ?>">
-        <div class="<?= $i['status']==='active'?'dot-active':'dot-inactive' ?>"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:var(--txt)"><?= e($i['name']) ?></div>
-          <div class="integr-item-url" onclick="copyEndpoint('<?= e($i['endpoint']) ?>')" title="Clique para copiar"><?= e($i['endpoint']) ?></div>
-        </div>
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="openEditById(<?= $i['id'] ?>)" data-integration="<?= htmlspecialchars(json_encode($i), ENT_QUOTES) ?>" id="btn-edit-<?= $i['id'] ?>" title="Configurar">⚙️</button>
-        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteIntegration(<?= $i['id'] ?>)">🗑</button>
-      </div>
-      <?php endforeach; ?>
-    </div>
-    <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="openCreate('autentique')">+ Nova integração</button>
   </div>
 
 </div>
@@ -245,28 +187,29 @@ let currentType = '';
 let currentEditId = null;
 let pendingIntegration = null;
 
-const typeLabels = {webhook:'Webhook',elementor:'Elementor',tintim:'Tintim',facebook_lead:'Formulário Facebook',autentique:'Autentique'};
-const typeIcons  = {webhook:'🔗',elementor:'🅴',tintim:'🤖',facebook_lead:'📋',autentique:'✍️'};
+const typeLabels = {webhook:'Webhook',elementor:'Elementor',facebook_lead:'Formulário Facebook'};
+const typeIcons  = {webhook:'🔗',elementor:'🅴',facebook_lead:'📋'};
 
 const typeVars = {
   webhook:       ['{{lead_name}}','{{lead_email}}','{{lead_phone}}','{{utm_source}}','{{utm_campaign}}'],
   elementor:     ['{{lead_name}}','{{lead_email}}','{{lead_phone}}','{{lead_formName}}','{{utm_source}}','{{utm_campaign}}','{{utm_content}}'],
-  tintim:        ['{{lead_name}}','{{lead_phone}}','{{lead_email}}','{{tintim_id}}','{{event}}'],
   facebook_lead: ['{{lead_name}}','{{lead_email}}','{{lead_phone}}'],
-  autentique:    ['{{event_label}}','{{signer_name}}','{{signer_email}}','{{signer_cpf}}','{{signer_phone}}','{{doc_signed_at}}','{{doc_id}}'],
 };
 
 const defaultMsgs = {
   webhook:       '🔔 *Novo lead recebido!*\n\nNome: {{lead_name}}\nEmail: {{lead_email}}\nTelefone: {{lead_phone}}',
   elementor:     '🔔 *Novo lead via Elementor!*\n\nNome: {{lead_name}}\nEmail: {{lead_email}}\nTelefone: {{lead_phone}}\n\nFonte: {{utm_source}} | Campanha: {{utm_campaign}}',
-  tintim:        '💬 *Nova conversa no Tintim!*\n\nContato: {{lead_name}}\nTelefone: {{lead_phone}}',
   facebook_lead: '📋 *Novo lead do Facebook Ads!*\n\nNome: {{lead_name}}\nEmail: {{lead_email}}\nTelefone: {{lead_phone}}',
 };
 
 function wpOptions(selected) {
   let h = '<option value="">Selecione uma instância</option>';
+  // Se a instância salva (selected) não existir mais na lista atual de instâncias
+  // conectadas, cai pra primeira disponível em vez de deixar nada marcado.
+  let existeNaLista = WPS.some(w => w.id == selected);
+  let efetivo = (selected && existeNaLista) ? selected : (WPS[0] ? WPS[0].id : '');
   WPS.forEach(w => {
-    h += `<option value="${w.id}" ${w.id==selected?'selected':''}>${w.instance_name}${w.phone_number?' ('+w.phone_number+')':''}</option>`;
+    h += `<option value="${w.id}" ${w.id==efetivo?'selected':''}>${w.instance_name}${w.phone_number?' ('+w.phone_number+')':''}</option>`;
   });
   return h;
 }
@@ -350,30 +293,6 @@ function openEdit(id, jsonStrOrObj, isNew=false) {
         <li>No seu App → Webhooks → Adicionar subscription para <strong>leadgen</strong></li>
         <li>Cole a URL e o token de verificação: <code style="color:var(--accent)">${i.uuid}</code></li>
         <li>Salve e teste enviando um lead de teste no Gerenciador de Anúncios</li>
-      </ol>
-    </div>`;
-  } else if (type === 'tintim') {
-    extra = `
-    <div class="fb-steps" style="margin-bottom:16px">
-      <strong>Como conectar ao Tintim:</strong>
-      <ol>
-        <li>Copie a URL do webhook abaixo</li>
-        <li>No Tintim → Integrações → Nova integração → Cole a URL nos campos:<br>
-          <em>URL que receberá dados toda vez que uma conversa for criada</em><br>
-          <em>URL que receberá dados toda vez que uma conversa for alterada</em>
-        </li>
-        <li>Clique em Salvar</li>
-      </ol>
-    </div>`;
-  } else if (type === 'autentique') {
-    extra = `
-    <div class="fb-steps" style="margin-bottom:16px">
-      <strong>Como conectar ao Autentique:</strong>
-      <ol>
-        <li>Copie a URL do webhook abaixo</li>
-        <li>No Autentique → Perfil → <strong>Webhooks</strong> → Adicionar endpoint</li>
-        <li>Cole a URL e salve</li>
-        <li>A cada documento assinado, você receberá a notificação no WhatsApp</li>
       </ol>
     </div>`;
   } else if (type === 'elementor') {

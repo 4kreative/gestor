@@ -1,26 +1,16 @@
--- ============================================================
--- GestorADS — Banco universal pronto para uso
--- Compatível com qualquer servidor MySQL/MariaDB
--- Gerado em: 2026-07-09
--- ============================================================
-
-SET NAMES utf8mb4;
-SET time_zone = '+00:00';
-SET foreign_key_checks = 0;
-SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
-
 -- phpMyAdmin SQL Dump
 -- version 5.2.2
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Tempo de geração: 10/07/2026 às 14:27
--- Versão do servidor: 11.8.8-MariaDB-log
+-- Tempo de geração: 11/09/2026 às 13:13
+-- Versão do servidor: 11.8.9-MariaDB-log
 -- Versão do PHP: 7.2.34
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
+
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -28,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Banco de dados: `u237119854_gestoradsj6`
+-- Banco de dados: `u237119854_agenciaoliva`
 --
 
 -- --------------------------------------------------------
@@ -47,6 +37,11 @@ CREATE TABLE `activity_log` (
   `ip` varchar(45) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Despejando dados para a tabela `activity_log`
+--
+
 
 -- --------------------------------------------------------
 
@@ -71,6 +66,11 @@ CREATE TABLE `ad_accounts` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Despejando dados para a tabela `ad_accounts`
+--
+
 
 -- --------------------------------------------------------
 
@@ -129,6 +129,11 @@ CREATE TABLE `alerts` (
   `proximo_reenvio_erro` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Despejando dados para a tabela `alerts`
+--
+
+
 -- --------------------------------------------------------
 
 --
@@ -147,6 +152,11 @@ CREATE TABLE `alert_logs` (
   `erro_msg` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Despejando dados para a tabela `alert_logs`
+--
+
 
 -- --------------------------------------------------------
 
@@ -199,6 +209,11 @@ CREATE TABLE `campaign_metrics` (
   `synced_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Despejando dados para a tabela `campaign_metrics`
+--
+
+
 -- --------------------------------------------------------
 
 --
@@ -220,6 +235,11 @@ CREATE TABLE `clients` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Despejando dados para a tabela `clients`
+--
+
 
 -- --------------------------------------------------------
 
@@ -331,21 +351,21 @@ CREATE TABLE `message_templates` (
 --
 
 INSERT INTO `message_templates` (`id`, `user_id`, `name`, `content`, `variables`, `is_default`, `created_at`, `updated_at`) VALUES
-(61, 1, '📸 Visitas ao Perfil — Instagram', '📸 *Relatório — Visitas ao Perfil*\r\n\r\n🗓 Período: {periodo}\r\n📊 Conta: {conta_anuncio}\r\n🎯 Campanha: {campanha}\r\n\r\n👁 *Visitas ao Perfil:* {profile_visit}\r\n💰 *Custo por Visita:* R$ {profile_visit_cost}\r\n\r\n📣 *Alcance:* {alcance}\r\n👀 *Impressões:* {impressoes}\r\n💸 *Investimento:* R$ {investimento}\r\n\r\n👉 Acesse o relatório completo:\r\n{link}\r\n\r\n_Relatório gerado automaticamente pela J6\' Digital 🚀_', NULL, 0, '2026-04-09 02:16:20', '2026-05-02 16:29:34'),
-(62, 1, '💬 Campanha de Mensagens', '💬 *Relatório — Meta ADS*\r\n\r\n🗓 Período: {periodo}\r\n📊 Conta: {conta_anuncio}\r\n🎯 Campanha: {campanha}\r\n\r\n📩 *Conversas Iniciadas:* {msg}\r\n💰 *Custo / Mensagem:* R$ {cmsg}\r\n\r\n📣 *Alcance:* {alcance}\r\n👀 *Impressões:* {impressoes}\r\n🔗 *Cliques:* {cliques}\r\n📊 *CTR:* {ctr}%\r\n💸 *Investimento:* R$ {investimento}\r\n📈 *CPM:* R$ {cpm}\r\n\r\n👉 Acesse o relatório completo:\r\n{link}\r\n\r\n_Relatório gerado automaticamente pela J6\' Digital 🚀_', NULL, 0, '2026-04-09 02:16:20', '2026-05-02 14:21:35'),
-(63, 1, '📡 Alcance e Reconhecimento de Marca', '📡 *Relatório de Alcance*\n🗓 Período: {periodo}\n📊 Conta: {conta_anuncio}\n\n👥 *Alcance (pessoas únicas):* {alcance}\n👀 *Impressões:* {impressoes}\n🔁 *Frequência:* {frequencia}x por pessoa\n💸 *Investimento:* R$ {investimento}\n📈 *CPM:* R$ {cpm}\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-04-09 02:16:20'),
-(64, 1, '🌐 Tráfego para o Site', '🌐 *Relatório — Tráfego para o Site*\n🗓 Período: {periodo}\n📊 Conta: {conta_anuncio}\n\n🖱 *Cliques no Link:* {cliques}\n💰 *CPC:* R$ {cpc}\n📊 *CTR:* {ctr}%\n🔎 *Visualizações de Página:* {pageview}\n💵 *Custo por Pageview:* R$ {cpvp}\n📣 *Alcance:* {alcance}\n👀 *Impressões:* {impressoes}\n📈 *CPM:* R$ {cpm}\n💸 *Investimento:* R$ {investimento}\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-04-09 02:16:20'),
-(65, 1, '🎯 Geração de Leads', '🎯 *Relatório — Geração de Leads*\n🗓 Período: {periodo}\n📊 Conta: {conta_anuncio}\n\n✅ *Leads Gerados:* {leads}\n💰 *Custo por Lead (CPL):* R$ {cpl}\n📣 *Alcance:* {alcance}\n👀 *Impressões:* {impressoes}\n🔗 *Cliques:* {cliques}\n📊 *CTR:* {ctr}%\n💸 *Investimento:* R$ {investimento}\n📈 *CPM:* R$ {cpm}\n🔁 *Frequência:* {frequencia}x\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-04-09 02:16:20'),
-(66, 1, '📊 Relatório Completo de Campanha', '📊 *Relatório Completo — {conta_anuncio}*\n🗓 Período: {periodo}\n\n━━━━━━━━━━━━━━━━━\n👥 *AUDIÊNCIA*\n📣 Alcance: {alcance}\n👀 Impressões: {impressoes}\n🔁 Frequência: {frequencia}x\n\n━━━━━━━━━━━━━━━━━\n🖱 *ENGAJAMENTO*\n🔗 Cliques: {cliques}\n📊 CTR: {ctr}%\n📸 Visitas ao Perfil: {profile_visit}\n💬 Mensagens: {msg}\n\n━━━━━━━━━━━━━━━━━\n✅ *CONVERSÕES*\n🎯 Resultados: {results}\n💰 Custo por Resultado: R$ {cpl}\n\n━━━━━━━━━━━━━━━━━\n💸 *INVESTIMENTO*\nTotal: R$ {investimento}\nCPM: R$ {cpm}\nCPC: R$ {cpc}\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-04-09 02:16:20'),
-(67, 1, '🎬 Campanhas de Vídeo', '🎬 *Relatório — Campanhas de Vídeo*\n🗓 Período: {periodo}\n📊 Conta: {conta_anuncio}\n\n▶️ *ThruPlays (assistidos até o fim):* {thruplay}\n💰 *Custo por ThruPlay:* R$ {thruplay_cost}\n📣 *Alcance:* {alcance}\n👀 *Impressões:* {impressoes}\n🔁 *Frequência:* {frequencia}x\n💸 *Investimento:* R$ {investimento}\n📈 *CPM:* R$ {cpm}\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-04-09 02:16:20'),
-(68, 1, '👤 Relatório para Cliente', 'Olá {nome_cliente}! 👋\n\nSegue o relatório de performance das suas campanhas no período de {periodo}:\n\n📊 *Resumo de Resultados:*\n• 💸 Investimento: R$ {investimento}\n• 👥 Alcance: {alcance} pessoas\n• 👀 Impressões: {impressoes}\n• 🔗 Cliques: {cliques}\n• 📊 CTR: {ctr}%\n• 📈 CPM: R$ {cpm}\n• 🖱 CPC: R$ {cpc}\n• ✅ Resultados: {results}\n• 💰 Custo por Resultado: R$ {cpl}\n• 📸 Visitas ao Perfil: {profile_visit}\n\nQualquer dúvida, estou à disposição! 🚀', NULL, 0, '2026-04-09 02:16:20', '2026-04-09 02:16:20'),
-(69, 1, '⚡ Alerta — Saldo Baixo Meta', '🚨 *Aviso — Saldo Meta ADS*\r\n\r\nOlá, *{primeiro_nome}*! 👋\r\n🏢 Empresa: *{empresa}*\r\n\r\n⚠️ Saldo mínimo: *{saldo_minimo}*\r\n💰 Saldo atual: *{saldo}*\r\n\r\n🔴 É necessário realizar uma recarga para evitar a pausa dos anúncios.\r\n\r\nQual valor para gerar o Pix?\r\n\r\n_Equipe J6\' Digital 🚀_', NULL, 0, '2026-04-11 20:09:16', '2026-04-29 21:11:32'),
-(70, 1, '📉 Alerta — CTR Baixo', '📉 *Aviso — CTR Baixo*\r\n\r\nOlá, *{primeiro_nome}*! 👋\r\n🏢 Empresa: *{empresa}*\r\n📊 Conta: *{conta_anuncio}*\r\n\r\n⚠️ O CTR está abaixo do limite configurado.\r\n📌 CTR atual: *{ctr}%*\r\n\r\nRecomendamos revisar os criativos e o público-alvo para melhorar o desempenho.\r\n\r\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-04-12 02:44:54'),
-(71, 1, '💸 Alerta — CPC Alto', '💸 *Aviso — CPC Alto*\n\nOlá, *{primeiro_nome}*! 👋\n🏢 Empresa: *{empresa}*\n📊 Conta: *{conta_anuncio}*\n\n⚠️ O custo por clique está acima do limite.\n📌 CPC atual: *R$ {metrica_atual}*\n\nSugerimos revisar lances, segmentação ou criativos.\n\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-04-11 20:09:16'),
-(72, 1, '💰 Alerta — Custo por Conversa Alto', '💰 *Aviso — Custo por Conversa Alto*\r\n\r\nOlá, *{primeiro_nome}*! 👋\r\n🏢 Empresa: *{empresa}*\r\n📊 Conta: *{conta_anuncio}*\r\n\r\n⚠️ O custo por conversa está acima do limite.\r\n📌 Custo atual: *R$ {cmsg}*\r\n\r\nRecomendamos ajustar o público ou os criativos.\r\n\r\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-04-12 02:44:21'),
-(73, 1, '📈 Alerta — ROAS Baixo', '📈 *Aviso — ROAS Baixo*\n\nOlá, *{primeiro_nome}*! 👋\n🏢 Empresa: *{empresa}*\n📊 Conta: *{conta_anuncio}*\n\n⚠️ O ROAS está abaixo do esperado.\n📌 ROAS atual: *{metrica_atual}x*\n\nRevise sua estratégia de conversão e orçamento.\n\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-04-11 20:09:16'),
-(74, 1, '🚨 Alerta — Erro na Conta', '🚨 *Aviso — Erro na Conta Meta*\r\n\r\nOlá, *{primeiro_nome}*! 👋\r\n🏢 Empresa: *{empresa}*\r\n\r\n🚨 *Problema na conta {conta_anuncio}*\r\n\r\n{erros_conta}\r\n\r\nAcesse o Gerenciador para corrigir.\r\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-04-20 19:56:50'),
-(75, 1, '✍️ Assinatura de Contrato', '✍️ *{{event_label}}*\r\n\r\n👤 *Signatário:* {{signer_name}}\r\n📧 *Email:* {{signer_email}}\r\n🪪 *CPF:* {{signer_cpf}}\r\n📅 *Assinado em:* {{doc_signed_at}}', NULL, 0, '2026-04-13 21:03:07', '2026-04-13 21:03:07');
+(61, 2, '📸 Visitas ao Perfil — Instagram', '📸 *Relatório — Visitas ao Perfil*\r\n\r\n🗓 Período: {periodo}\r\n📊 Conta: {conta_anuncio}\r\n🎯 Campanha: {campanha}\r\n\r\n👁 *Visitas ao Perfil:* {profile_visit}\r\n💰 *Custo por Visita:* R$ {profile_visit_cost}\r\n\r\n📣 *Alcance:* {alcance}\r\n👀 *Impressões:* {impressoes}\r\n💸 *Investimento:* R$ {investimento}\r\n\r\n👉 Acesse o relatório completo:\r\n{link}\r\n\r\n_Relatório gerado automaticamente pela J6\' Digital 🚀_', NULL, 0, '2026-04-09 02:16:20', '2026-08-10 16:19:39'),
+(62, 2, '💬 Campanha de Mensagens', '💬 *Relatório — Meta ADS*\r\n\r\n🗓 Período: {periodo}\r\n📊 Conta: {conta_anuncio}\r\n🎯 Campanha: {campanha}\r\n\r\n📩 *Conversas Iniciadas:* {msg}\r\n💰 *Custo / Mensagem:* R$ {cmsg}\r\n\r\n📣 *Alcance:* {alcance}\r\n👀 *Impressões:* {impressoes}\r\n🔗 *Cliques:* {cliques}\r\n📊 *CTR:* {ctr}%\r\n💸 *Investimento:* R$ {investimento}\r\n📈 *CPM:* R$ {cpm}\r\n\r\n👉 Acesse o relatório completo:\r\n{link}\r\n\r\n_Relatório gerado automaticamente pela J6\' Digital 🚀_', NULL, 0, '2026-04-09 02:16:20', '2026-08-10 16:19:39'),
+(63, 2, '📡 Alcance e Reconhecimento de Marca', '📡 *Relatório de Alcance*\n🗓 Período: {periodo}\n📊 Conta: {conta_anuncio}\n\n👥 *Alcance (pessoas únicas):* {alcance}\n👀 *Impressões:* {impressoes}\n🔁 *Frequência:* {frequencia}x por pessoa\n💸 *Investimento:* R$ {investimento}\n📈 *CPM:* R$ {cpm}\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-08-10 16:19:39'),
+(64, 2, '🌐 Tráfego para o Site', '🌐 *Relatório — Tráfego para o Site*\n🗓 Período: {periodo}\n📊 Conta: {conta_anuncio}\n\n🖱 *Cliques no Link:* {cliques}\n💰 *CPC:* R$ {cpc}\n📊 *CTR:* {ctr}%\n🔎 *Visualizações de Página:* {pageview}\n💵 *Custo por Pageview:* R$ {cpvp}\n📣 *Alcance:* {alcance}\n👀 *Impressões:* {impressoes}\n📈 *CPM:* R$ {cpm}\n💸 *Investimento:* R$ {investimento}\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-08-10 16:19:39'),
+(65, 2, '🎯 Geração de Leads', '🎯 *Relatório — Geração de Leads*\n🗓 Período: {periodo}\n📊 Conta: {conta_anuncio}\n\n✅ *Leads Gerados:* {leads}\n💰 *Custo por Lead (CPL):* R$ {cpl}\n📣 *Alcance:* {alcance}\n👀 *Impressões:* {impressoes}\n🔗 *Cliques:* {cliques}\n📊 *CTR:* {ctr}%\n💸 *Investimento:* R$ {investimento}\n📈 *CPM:* R$ {cpm}\n🔁 *Frequência:* {frequencia}x\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-08-10 16:19:39'),
+(66, 2, '📊 Relatório Completo de Campanha', '📊 *Relatório Completo — {conta_anuncio}*\n🗓 Período: {periodo}\n\n━━━━━━━━━━━━━━━━━\n👥 *AUDIÊNCIA*\n📣 Alcance: {alcance}\n👀 Impressões: {impressoes}\n🔁 Frequência: {frequencia}x\n\n━━━━━━━━━━━━━━━━━\n🖱 *ENGAJAMENTO*\n🔗 Cliques: {cliques}\n📊 CTR: {ctr}%\n📸 Visitas ao Perfil: {profile_visit}\n💬 Mensagens: {msg}\n\n━━━━━━━━━━━━━━━━━\n✅ *CONVERSÕES*\n🎯 Resultados: {results}\n💰 Custo por Resultado: R$ {cpl}\n\n━━━━━━━━━━━━━━━━━\n💸 *INVESTIMENTO*\nTotal: R$ {investimento}\nCPM: R$ {cpm}\nCPC: R$ {cpc}\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-08-10 16:19:39'),
+(67, 2, '🎬 Campanhas de Vídeo', '🎬 *Relatório — Campanhas de Vídeo*\n🗓 Período: {periodo}\n📊 Conta: {conta_anuncio}\n\n▶️ *ThruPlays (assistidos até o fim):* {thruplay}\n💰 *Custo por ThruPlay:* R$ {thruplay_cost}\n📣 *Alcance:* {alcance}\n👀 *Impressões:* {impressoes}\n🔁 *Frequência:* {frequencia}x\n💸 *Investimento:* R$ {investimento}\n📈 *CPM:* R$ {cpm}\n\n_Relatório gerado automaticamente pelo GestorPro_', NULL, 0, '2026-04-09 02:16:20', '2026-08-10 16:19:39'),
+(68, 2, '👤 Relatório para Cliente', 'Olá {nome_cliente}! 👋\n\nSegue o relatório de performance das suas campanhas no período de {periodo}:\n\n📊 *Resumo de Resultados:*\n• 💸 Investimento: R$ {investimento}\n• 👥 Alcance: {alcance} pessoas\n• 👀 Impressões: {impressoes}\n• 🔗 Cliques: {cliques}\n• 📊 CTR: {ctr}%\n• 📈 CPM: R$ {cpm}\n• 🖱 CPC: R$ {cpc}\n• ✅ Resultados: {results}\n• 💰 Custo por Resultado: R$ {cpl}\n• 📸 Visitas ao Perfil: {profile_visit}\n\nQualquer dúvida, estou à disposição! 🚀', NULL, 0, '2026-04-09 02:16:20', '2026-08-10 16:19:39'),
+(69, 2, '⚡ Alerta — Saldo Baixo Meta', '🚨 *Aviso — Saldo Meta ADS*\r\n\r\nOlá, *{primeiro_nome}*! 👋\r\n🏢 Empresa: *{empresa}*\r\n\r\n⚠️ Saldo mínimo: *{saldo_minimo}*\r\n💰 Saldo atual: *{saldo}*\r\n\r\n🔴 É necessário realizar uma recarga para evitar a pausa dos anúncios.\r\n\r\nPosso gerar o Pix para recarga?\r\n', NULL, 0, '2026-04-11 20:09:16', '2026-08-10 13:27:45'),
+(70, 2, '📉 Alerta — CTR Baixo', '📉 *Aviso — CTR Baixo*\r\n\r\nOlá, *{primeiro_nome}*! 👋\r\n🏢 Empresa: *{empresa}*\r\n📊 Conta: *{conta_anuncio}*\r\n\r\n⚠️ O CTR está abaixo do limite configurado.\r\n📌 CTR atual: *{ctr}%*\r\n\r\nRecomendamos revisar os criativos e o público-alvo para melhorar o desempenho.\r\n\r\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-08-10 16:19:39'),
+(71, 2, '💸 Alerta — CPC Alto', '💸 *Aviso — CPC Alto*\n\nOlá, *{primeiro_nome}*! 👋\n🏢 Empresa: *{empresa}*\n📊 Conta: *{conta_anuncio}*\n\n⚠️ O custo por clique está acima do limite.\n📌 CPC atual: *R$ {metrica_atual}*\n\nSugerimos revisar lances, segmentação ou criativos.\n\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-08-10 16:19:39'),
+(72, 2, '💰 Alerta — Custo por Conversa Alto', '💰 *Aviso — Custo por Conversa Alto*\r\n\r\nOlá, *{primeiro_nome}*! 👋\r\n🏢 Empresa: *{empresa}*\r\n📊 Conta: *{conta_anuncio}*\r\n\r\n⚠️ O custo por conversa está acima do limite.\r\n📌 Custo atual: *R$ {cmsg}*\r\n\r\nRecomendamos ajustar o público ou os criativos.\r\n\r\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-08-10 16:19:39'),
+(73, 2, '📈 Alerta — ROAS Baixo', '📈 *Aviso — ROAS Baixo*\n\nOlá, *{primeiro_nome}*! 👋\n🏢 Empresa: *{empresa}*\n📊 Conta: *{conta_anuncio}*\n\n⚠️ O ROAS está abaixo do esperado.\n📌 ROAS atual: *{metrica_atual}x*\n\nRevise sua estratégia de conversão e orçamento.\n\n— Equipe J6\' Digital 🚀', NULL, 0, '2026-04-11 20:09:16', '2026-08-10 16:19:39'),
+(74, 2, '🚨 Alerta — Erro na Conta', '🚨 *Aviso — Erro na Conta Meta*\r\n\r\nOlá, *{primeiro_nome}*! 👋\r\n🏢 Empresa: *{empresa}*\r\n\r\n🚨 *Problema na conta {conta_anuncio}*\r\n\r\n{erros_conta}\r\n\r\nAcesse o Gerenciador para corrigir.', NULL, 0, '2026-04-11 20:09:16', '2026-08-10 15:18:05'),
+(75, 2, '✍️ Assinatura de Contrato', '✍️ *{{event_label}}*\r\n\r\n👤 *Signatário:* {{signer_name}}\r\n📧 *Email:* {{signer_email}}\r\n🪪 *CPF:* {{signer_cpf}}\r\n📅 *Assinado em:* {{doc_signed_at}}', NULL, 0, '2026-04-13 21:03:07', '2026-08-10 16:19:39');
 
 -- --------------------------------------------------------
 
@@ -362,6 +382,11 @@ CREATE TABLE `notifications` (
   `read_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Despejando dados para a tabela `notifications`
+--
+
 
 -- --------------------------------------------------------
 
@@ -398,8 +423,6 @@ CREATE TABLE `pdf_templates` (
 -- Despejando dados para a tabela `pdf_templates`
 --
 
-INSERT INTO `pdf_templates` (`id`, `user_id`, `name`, `config`, `created_at`, `updated_at`) VALUES
-(28, 1, 'Novo Template', '{\"blocks\":[\"header\",\"kpis\",\"footer\",\"chart\",\"chart_bar\"],\"palette\":{\"accent\":\"#5B8DEF\",\"bg\":\"#ffffff\",\"txt\":\"#1a1a2e\"},\"blockConfigs\":{\"0\":{\"period\":\"20/05/2026 a 19/06/2026\"},\"1\":{\"cpc\":false,\"msgs\":true,\"cmsg\":true,\"spend\":true,\"impr\":true,\"clicks\":true,\"ctr\":true,\"cpm\":true,\"reach\":true,\"freq\":false},\"2\":{},\"3\":{\"metric\":\"messages\",\"chart_color\":\"#5B8DEF\"},\"4\":{\"bar_metric\":\"messages\",\"bar_metric2\":\"spend\",\"bar_color1\":\"#5B8DEF\"}}}', '2026-06-19 18:29:08', '2026-06-19 18:30:27');
 
 -- --------------------------------------------------------
 
@@ -497,6 +520,7 @@ CREATE TABLE `system_settings` (
 -- Despejando dados para a tabela `system_settings`
 --
 
+
 -- --------------------------------------------------------
 
 --
@@ -512,11 +536,12 @@ CREATE TABLE `sys_licenca` (
   `ativado_em` datetime DEFAULT NULL,
   `ultima_checagem` datetime DEFAULT NULL,
   `atualizado_em` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Despejando dados para a tabela `sys_licenca`
 --
+
 
 -- --------------------------------------------------------
 
@@ -546,6 +571,9 @@ CREATE TABLE `users` (
 -- Despejando dados para a tabela `users`
 --
 
+INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `plan`, `plan_expires_at`, `avatar`, `phone`, `status`, `remember_token`, `remember_expires_at`, `last_login`, `created_at`, `updated_at`) VALUES
+(2, 'Administrador', 'admin@admin.com', '$2b$10$Z1bGMW2qmLW1s1VTKwKIQOY3gYKFWfBlKYULqnJrxLO2BiDUTn3ai', 'admin', 'pro', NULL, NULL, NULL, 'active', NULL, NULL, NULL, NOW(), NOW());
+
 -- --------------------------------------------------------
 
 --
@@ -563,6 +591,7 @@ CREATE TABLE `user_ai_settings` (
 --
 -- Despejando dados para a tabela `user_ai_settings`
 --
+
 
 -- --------------------------------------------------------
 
@@ -596,6 +625,11 @@ CREATE TABLE `whatsapp_groups_cache` (
   `synced_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Despejando dados para a tabela `whatsapp_groups_cache`
+--
+
+
 -- --------------------------------------------------------
 
 --
@@ -614,6 +648,11 @@ CREATE TABLE `whatsapp_instances` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Despejando dados para a tabela `whatsapp_instances`
+--
+
 
 --
 -- Índices para tabelas despejadas
@@ -834,43 +873,43 @@ ALTER TABLE `whatsapp_instances`
 -- AUTO_INCREMENT de tabela `activity_log`
 --
 ALTER TABLE `activity_log`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=242;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `ad_accounts`
 --
 ALTER TABLE `ad_accounts`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `ai_logs`
 --
 ALTER TABLE `ai_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `alerts`
 --
 ALTER TABLE `alerts`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=104;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `alert_logs`
 --
 ALTER TABLE `alert_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=478;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `campaign_metrics`
 --
 ALTER TABLE `campaign_metrics`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=649310;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `clients`
 --
 ALTER TABLE `clients`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `client_recharges`
@@ -882,25 +921,25 @@ ALTER TABLE `client_recharges`
 -- AUTO_INCREMENT de tabela `dashboard_cache`
 --
 ALTER TABLE `dashboard_cache`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15938;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `dashboard_notes`
 --
 ALTER TABLE `dashboard_notes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `integrations`
 --
 ALTER TABLE `integrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `integration_logs`
 --
 ALTER TABLE `integration_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `message_templates`
@@ -912,67 +951,67 @@ ALTER TABLE `message_templates`
 -- AUTO_INCREMENT de tabela `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1314;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `password_resets`
 --
 ALTER TABLE `password_resets`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `pdf_templates`
 --
 ALTER TABLE `pdf_templates`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `reports`
 --
 ALTER TABLE `reports`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `report_logs`
 --
 ALTER TABLE `report_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `system_settings`
 --
 ALTER TABLE `system_settings`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `sys_licenca`
 --
 ALTER TABLE `sys_licenca`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=442;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de tabela `user_ai_settings`
 --
 ALTER TABLE `user_ai_settings`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=87917;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `whatsapp_groups_cache`
 --
 ALTER TABLE `whatsapp_groups_cache`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2201;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT de tabela `whatsapp_instances`
 --
 ALTER TABLE `whatsapp_instances`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 -- --------------------------------------------------------
 
@@ -981,7 +1020,7 @@ ALTER TABLE `whatsapp_instances`
 --
 DROP TABLE IF EXISTS `v_client_saldo`;
 
-CREATE VIEW `v_client_saldo`  AS SELECT `c`.`id` AS `client_id`, `c`.`user_id` AS `user_id`, `c`.`name` AS `client_name`, `c`.`payment_type` AS `payment_type`, `c`.`saldo_alerta` AS `saldo_alerta`, coalesce(sum(`r`.`valor`),0) AS `total_recarregado`, max(`r`.`created_at`) AS `ultima_recarga_at`, max(`r`.`valor`) AS `ultima_recarga_valor` FROM (`clients` `c` left join `client_recharges` `r` on(`r`.`client_id` = `c`.`id` and `r`.`user_id` = `c`.`user_id`)) WHERE `c`.`payment_type` = 'prepago' GROUP BY `c`.`id`, `c`.`user_id`, `c`.`name`, `c`.`payment_type`, `c`.`saldo_alerta` ;
+CREATE ALGORITHM=UNDEFINED DEFINER=CURRENT_USER SQL SECURITY DEFINER VIEW `v_client_saldo`  AS SELECT `c`.`id` AS `client_id`, `c`.`user_id` AS `user_id`, `c`.`name` AS `client_name`, `c`.`payment_type` AS `payment_type`, `c`.`saldo_alerta` AS `saldo_alerta`, coalesce(sum(`r`.`valor`),0) AS `total_recarregado`, max(`r`.`created_at`) AS `ultima_recarga_at`, max(`r`.`valor`) AS `ultima_recarga_valor` FROM (`clients` `c` left join `client_recharges` `r` on(`r`.`client_id` = `c`.`id` and `r`.`user_id` = `c`.`user_id`)) WHERE `c`.`payment_type` = 'prepago' GROUP BY `c`.`id`, `c`.`user_id`, `c`.`name`, `c`.`payment_type`, `c`.`saldo_alerta` ;
 
 --
 -- Restrições para tabelas despejadas
@@ -1072,22 +1111,3 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-
--- ============================================================
--- Usuário admin padrão
--- Login: admin@admin.com
--- Senha: admin123
--- TROQUE A SENHA APÓS O PRIMEIRO ACESSO
--- ============================================================
-
-INSERT INTO `users` (`name`, `email`, `password`, `role`, `plan`, `status`, `created_at`, `updated_at`) 
-VALUES ('Administrador', 'admin@admin.com', '$2y$10$aBWRb80UfG/EyWmFEXVM0u5XSNN3nneEA8n6CXNfJaPVQ3.8jblXe', 'admin', 'pro', 'active', NOW(), NOW());
-
--- ============================================================
--- Configurações padrão do sistema
--- (editar em: Painel > Configurações)
--- ============================================================
-
-INSERT INTO `system_settings` (`id`, `site_name`, `created_at`, `updated_at`) 
-VALUES (1, 'GestorADS', NOW(), NOW())
-ON DUPLICATE KEY UPDATE `site_name` = VALUES(`site_name`);

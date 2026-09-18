@@ -61,7 +61,7 @@ ob_start();
           <option value="cartao"  <?= (($client['payment_type']??'cartao')==='cartao' ?'selected':'') ?>>Cartão de Crédito</option>
           <option value="prepago" <?= (($client['payment_type']??'')==='prepago'?'selected':'') ?>>Pré-pago (Pix/Transferência)</option>
         </select>
-        <div class="form-hint">Pré-pago: controla saldo e dias restantes no dashboard</div>
+        <div class="form-hint">Pré-pago: controla saldo e dias restantes no dashboard. Funciona apenas para contas Meta Ads conectadas — o Google Ads não expõe saldo pela API.</div>
       </div>
       <div class="form-group" id="saldo_alerta_group" style="display:<?= (($client['payment_type']??'cartao')==='prepago'?'block':'none') ?>">
         <label class="form-label">⚠️ Alertar quando saldo abaixo de</label>

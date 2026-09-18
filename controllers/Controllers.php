@@ -257,6 +257,8 @@ class TemplateController {
         requireAuth();
         $uid       = currentUser()['id'];
         $templates = Database::getInstance()->query("SELECT * FROM message_templates WHERE user_id=? ORDER BY is_default DESC,name",[$uid])->fetchAll();
+        $qtdMeta   = count(array_filter($templates, fn($t) => ($t['platform'] ?? '') === 'meta'));
+        $qtdGoogle = count(array_filter($templates, fn($t) => ($t['platform'] ?? '') === 'google'));
         $pageTitle = 'Templates de Mensagem'; $currentPage = 'templates';
         ob_start(); ?>
 <div style="max-width:900px">
@@ -268,12 +270,34 @@ class TemplateController {
   <?php if (empty($templates)): ?>
   <div class="card"><div class="empty-state"><span class="material-icons-outlined">file_copy</span><h3>Nenhum template</h3><p>Crie seu primeiro template de mensagem</p></div></div>
   <?php else: ?>
+  <!-- Abas por canal -->
+  <div style="display:flex;gap:6px;margin-bottom:14px">
+    <button type="button" class="tpl-tab active" data-plat="" onclick="filterTplPlat('', this)"
+      style="padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent)">
+      Todos (<?= count($templates) ?>)
+    </button>
+    <button type="button" class="tpl-tab" data-plat="meta" onclick="filterTplPlat('meta', this)"
+      style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;background:var(--bg2);color:var(--txt2);border:1px solid var(--border)">
+      <i class="fa-brands fa-facebook" style="font-size:12px"></i> Meta Ads (<?= $qtdMeta ?>)
+    </button>
+    <button type="button" class="tpl-tab" data-plat="google" onclick="filterTplPlat('google', this)"
+      style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;background:var(--bg2);color:var(--txt2);border:1px solid var(--border)">
+      <i class="fa-brands fa-google" style="font-size:12px;color:#EA4335"></i> Google Ads (<?= $qtdGoogle ?>)
+    </button>
+  </div>
   <?php foreach ($templates as $t): ?>
-  <div class="card" style="margin-bottom:12px">
+  <div class="card tpl-card" data-platform="<?= e($t['platform'] ?? '') ?>" style="margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:600;color:var(--txt)"><?= e($t['name']) ?></span>
         <?php if ($t['is_default']): ?><span class="badge badge-blue badge-sm">Padrão</span><?php endif; ?>
+        <?php if (($t['platform'] ?? '') === 'meta'): ?>
+          <span class="badge badge-sm" style="background:rgba(76,141,255,.15);color:#7fb0ff"><i class="fa-brands fa-facebook" style="font-size:10px"></i> Meta Ads</span>
+        <?php elseif (($t['platform'] ?? '') === 'google'): ?>
+          <span class="badge badge-sm" style="background:rgba(234,67,53,.15);color:#EA4335"><i class="fa-brands fa-google" style="font-size:10px"></i> Google Ads</span>
+        <?php else: ?>
+          <span class="badge badge-sm" style="background:var(--bg3);color:var(--txt3)">Ambos</span>
+        <?php endif; ?>
       </div>
       <div style="display:flex;gap:6px">
         <button onclick="editarTemplate(<?= htmlspecialchars(json_encode($t),ENT_QUOTES) ?>)" class="btn btn-secondary btn-sm btn-icon" title="Editar">
@@ -316,6 +340,15 @@ class TemplateController {
           <div class="form-group">
             <label class="form-label">Nome do Template <span class="req">*</span></label>
             <input type="text" name="name" id="tplName" class="form-control" required placeholder="Ex: Relatório Semanal">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Canal</label>
+            <select name="platform" id="tplPlatform" class="form-control">
+              <option value="">Ambos (Meta e Google)</option>
+              <option value="meta">Só Meta Ads</option>
+              <option value="google">Só Google Ads</option>
+            </select>
           </div>
 
           <!-- Var picker -->
@@ -419,12 +452,24 @@ var VAR_CATS_TPL = {
 };
 var vpTplActiveCat = 'Todas';
 
+function filterTplPlat(plat, btnEl) {
+  document.querySelectorAll('.tpl-tab').forEach(function(b){
+    b.style.background = 'var(--bg2)'; b.style.color = 'var(--txt2)'; b.style.borderColor = 'var(--border)'; b.style.fontWeight = 'normal';
+  });
+  btnEl.style.background = 'var(--accent)'; btnEl.style.color = '#fff'; btnEl.style.borderColor = 'var(--accent)'; btnEl.style.fontWeight = '600';
+  document.querySelectorAll('.tpl-card').forEach(function(card){
+    var p = card.dataset.platform;
+    var mostra = !plat || !p || p === plat;
+    card.style.display = mostra ? '' : 'none';
+  });
+}
 function abrirModal(){ resetModal(); document.getElementById('tplModal').style.display='flex'; document.body.style.overflow='hidden'; buildVpTpl(); }
 function fecharModal(){ document.getElementById('tplModal').style.display='none'; document.body.style.overflow=''; }
 function resetModal(){
   document.getElementById('tplModalTitle').textContent='Novo Template';
   document.getElementById('tplId').value='';
   document.getElementById('tplName').value='';
+  document.getElementById('tplPlatform').value='';
   document.getElementById('tplContent').value='';
   document.getElementById('tplPrev').innerHTML='';
   document.getElementById('tplForm').action='<?= APP_URL ?>/templates/store';
@@ -433,6 +478,7 @@ function editarTemplate(t){
   document.getElementById('tplModalTitle').textContent='Editar Template';
   document.getElementById('tplId').value=t.id;
   document.getElementById('tplName').value=t.name||'';
+  document.getElementById('tplPlatform').value=t.platform||'';
   document.getElementById('tplContent').value=t.content||'';
   updTplPrev();
   document.getElementById('tplForm').action='<?= APP_URL ?>/templates/update';
@@ -505,8 +551,9 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ fecharMod
         $uid  = currentUser()['id'];
         $name = sanitize($_POST['name']    ?? '');
         $cont = $_POST['content']          ?? '';
+        $plat = in_array($_POST['platform'] ?? '', ['meta','google'], true) ? $_POST['platform'] : null;
         if (!$name || !$cont) { flash('error','Preencha todos os campos.'); redirect('/templates'); }
-        Database::getInstance()->query("INSERT INTO message_templates (user_id,name,content) VALUES (?,?,?)",[$uid,$name,$cont]);
+        Database::getInstance()->query("INSERT INTO message_templates (user_id,name,content,platform) VALUES (?,?,?,?)",[$uid,$name,$cont,$plat]);
         flash('success','Template salvo!');
         redirect('/templates');
     }
@@ -516,8 +563,9 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ fecharMod
         $id   = (int)($_POST['id'] ?? 0);
         $name = sanitize($_POST['name']    ?? '');
         $cont = $_POST['content']          ?? '';
+        $plat = in_array($_POST['platform'] ?? '', ['meta','google'], true) ? $_POST['platform'] : null;
         if (!$name || !$cont || !$id) { flash('error','Preencha todos os campos.'); redirect('/templates'); }
-        Database::getInstance()->query("UPDATE message_templates SET name=?,content=? WHERE id=? AND user_id=?",[$name,$cont,$id,$uid]);
+        Database::getInstance()->query("UPDATE message_templates SET name=?,content=?,platform=? WHERE id=? AND user_id=?",[$name,$cont,$plat,$id,$uid]);
         flash('success','Template atualizado!');
         redirect('/templates');
     }

@@ -18,7 +18,10 @@ $PERIODOS = [
 $FREQS = ['once'=>'Uma vez','daily'=>'Diário','weekly'=>'Semanal','monthly'=>'Mensal'];
 $OBJS  = ['todos'=>'Todos','reconhecimento'=>'Reconhecimento','trafego'=>'Tráfego',
           'mensagem'=>'Mensagem','engajamento'=>'Engajamento','leads'=>'Leads','vendas'=>'Vendas',
-          'turbinar'=>'Turbinar','app'=>'Promoção de App'];
+          'turbinar'=>'Turbinar','app'=>'Promoção de App',
+          // Objetivos do Google Ads (não confundir com os da Meta acima)
+          'google_pesquisa'=>'Pesquisa','google_pmax'=>'Performance Max','google_display'=>'Display',
+          'google_shopping'=>'Shopping','google_video'=>'Vídeo (YouTube)','google_app'=>'App'];
 ?>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
@@ -206,7 +209,7 @@ $OBJS  = ['todos'=>'Todos','reconhecimento'=>'Reconhecimento','trafego'=>'Tráfe
       <td>
         <div style="display:flex;gap:3px">
           <button onclick="openAiReport(<?=htmlspecialchars(json_encode(['id'=>$r['id'],'title'=>$r['title'],'ad_account_id'=>$r['ad_account_id'],'camp_ids'=>$r['camp_ids']??'','period_type'=>$r['period_type']??'last_7_days','platform'=>$r['platform']??'meta']),ENT_QUOTES)?>)" class="btn btn-secondary btn-sm btn-icon" title="Analisar com IA" style="background:var(--accent3);border-color:var(--accent);color:var(--accent)"><span class="material-icons-outlined" style="font-size:13px">auto_awesome</span></button>
-          <button onclick="openPdfSendModal(this)" data-id="<?=$r['id']?>" data-title="<?=htmlspecialchars($r['title'],ENT_QUOTES)?>" data-msg="<?=htmlspecialchars($r['message_text']??'',ENT_QUOTES)?>" class="btn btn-secondary btn-sm btn-icon" title="PDF / Enviar WhatsApp" style="background:rgba(231,76,60,.08);border-color:rgba(231,76,60,.3);color:#e74c3c"><span class="material-icons-outlined" style="font-size:13px">picture_as_pdf</span></button>
+          <button onclick="openPdfSendModal(this)" data-id="<?=$r['id']?>" data-title="<?=htmlspecialchars($r['title'],ENT_QUOTES)?>" data-msg="<?=htmlspecialchars($r['message_text']??'',ENT_QUOTES)?>" data-platform="<?=e($r['platform']??'meta')?>" class="btn btn-secondary btn-sm btn-icon" title="PDF / Enviar WhatsApp" style="background:rgba(231,76,60,.08);border-color:rgba(231,76,60,.3);color:#e74c3c"><span class="material-icons-outlined" style="font-size:13px">picture_as_pdf</span></button>
           <button onclick="sendNow(<?=$r['id']?>,'<?=e($r['recv_type']==='group'?($r['group_name']??$r['recipient_phone']??''):($r['recipient_phone']??''))?>','<?=e($r['recv_type']??'phone')?>')" class="btn btn-success btn-sm btn-icon" title="Enviar agora"><i class="fa-brands fa-whatsapp" style="font-size:13px"></i></button>
           <button onclick="editRel(<?=htmlspecialchars(json_encode($r),ENT_QUOTES)?>)" class="btn btn-secondary btn-sm btn-icon" title="Editar"><span class="material-icons-outlined" style="font-size:13px">edit</span></button>
           <form method="POST" action="<?=APP_URL?>/reports/delete" style="display:inline">
@@ -553,6 +556,7 @@ function openPdfSendModal(el) {
   var id          = el ? parseInt(el.dataset.id) : 0;
   var title       = el ? (el.dataset.title||'') : '';
   var msgTemplate = el ? (el.dataset.msg||'') : '';
+  var plat        = el ? (el.dataset.platform||'meta') : 'meta';
   _pdfSendId     = id;
   _currentPdfUrl = '';
 
@@ -610,12 +614,12 @@ function openPdfSendModal(el) {
     + '</div>'
 
     // Template PDF
-    + (PDF_TEMPLATES.length > 0
+    + ((PDF_TEMPLATES.filter(function(t){return !t.platform || t.platform===plat;})).length > 0
         ? '<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">'
           + '<div style="font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:6px;text-transform:uppercase">🎨 Template do PDF</div>'
           + '<select id="pdfTplSelect" class="form-control form-control-sm" onchange="_pdfSendTplId=parseInt(this.value)||0;generatePdfLink(_pdfSendId)">'
           + '<option value="0">— Selecione um template —</option>'
-          + PDF_TEMPLATES.map(function(t){ return '<option value="'+t.id+'">'+esc(t.name)+'</option>'; }).join('')
+          + PDF_TEMPLATES.filter(function(t){return !t.platform || t.platform===plat;}).map(function(t){ return '<option value="'+t.id+'">'+esc(t.name)+'</option>'; }).join('')
           + '</select>'
           + '<div style="font-size:10px;color:var(--txt3);margin-top:4px">Escolha o template adequado para o objetivo do relatório</div>'
           + '</div>'
@@ -956,6 +960,22 @@ var VAR_CATS = {
 };
 
 // Monta HTML de uma campanha com adsets expansíveis usando DOM
+// Ativas E COM GASTO RECENTE sempre no topo. Campanha "ativa" mas sem gasto
+// nos últimos 30 dias fica no meio (mais visível que as pausadas de verdade,
+// mas não se mistura com as que realmente estão rodando), pra reduzir o
+// risco de selecionar sem querer uma campanha ativa só no nome.
+function ordenarCampanhasPorStatus(lista){
+  return (lista||[]).slice().sort(function(a,b){
+    function prioridade(c){
+      var ativa = (c.effective_status||c.status) === 'ACTIVE';
+      var comGasto = parseFloat(c.recent_spend) > 0;
+      if (ativa && comGasto) return 0;
+      if (ativa && !comGasto) return 1;
+      return 2;
+    }
+    return prioridade(a) - prioridade(b);
+  });
+}
 function buildCampItem(camp, campIds, adsetIds){
   if(!camp || !camp.id) return '';
   var cid    = String(camp.id);
@@ -984,6 +1004,13 @@ function buildCampItem(camp, campIds, adsetIds){
   var stLabel = st.label || (camp.effective_status||'?');
 
   H += '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+stBg+';color:'+stColor+'">'+stDot+' '+stLabel+'</span>';
+  // Campanha com status "Ativo" mas sem nenhum gasto nos últimos 30 dias —
+  // provável que os conjuntos de anúncio dela estejam pausados por dentro,
+  // mesmo a campanha "mãe" continuando marcada como ativa na Meta.
+  var statusReal = camp.effective_status || camp.status;
+  if (statusReal === 'ACTIVE' && !(parseFloat(camp.recent_spend) > 0)) {
+    H += '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(243,156,18,.15);color:#f39c12" title="Status diz Ativo, mas sem gasto registrado nos últimos 30 dias — provavelmente os conjuntos de anúncio dela estão pausados por dentro">⚠ Sem gasto recente</span>';
+  }
   var _aid=document.getElementById('wAcc')?document.getElementById('wAcc').value:'0';
   H += '<button type="button" class="btn-ai" onclick="rpOpen(\''+cid+'\',\''+_aid+'\',\''+esc(name)+'\')">✨ IA</button>';
   H += '</div>';
@@ -1025,7 +1052,7 @@ function searchCamps(q){
 
   var list = document.getElementById('campList');
   if(!list) return;
-  list.innerHTML = filtered.map(function(camp){
+  list.innerHTML = ordenarCampanhasPorStatus(filtered).map(function(camp){
     return buildCampItem(camp, W.camp_ids, W.adset_ids||[]);
   }).join('');
 }
@@ -1069,7 +1096,7 @@ function filterCamps(mode, btn){
   W._filteredCamps = camps;
   var list = document.getElementById('campList');
   if(list){
-    list.innerHTML = camps.map(function(camp){
+    list.innerHTML = ordenarCampanhasPorStatus(camps).map(function(camp){
       return buildCampItem(camp, W.camp_ids, W.adset_ids||[]);
     }).join('');
   }
@@ -1278,10 +1305,17 @@ function s2(){
   var sel='<option value="">— Selecione a conta —</option>';
   cf.forEach(function(c){sel+='<option value="'+c.id+'" data-meta="'+esc(c.account_id||'')+'" data-name="'+esc(c.account_name)+'" '+(W.acc_id==c.id?'selected':'')+'>'+esc(c.account_name)+'</option>';});
 
-  var objs=[{k:'todos',i:'🌐',l:'Todos'},{k:'reconhecimento',i:'👁',l:'Reconhecimento'},
+  // Meta e Google têm taxonomias de objetivo diferentes — não faz sentido reaproveitar
+  // a mesma lista (o Google não tem "Turbinar" nem "Reconhecimento" do jeito da Meta).
+  var objsMeta=[{k:'todos',i:'🌐',l:'Todos'},{k:'reconhecimento',i:'👁',l:'Reconhecimento'},
     {k:'trafego',i:'🚦',l:'Tráfego'},{k:'mensagem',i:'💬',l:'Mensagem'},
     {k:'engajamento',i:'👍',l:'Engajamento'},{k:'turbinar',i:'⚡',l:'Turbinar'},
     {k:'leads',i:'🎯',l:'Leads'},{k:'vendas',i:'💰',l:'Vendas'},{k:'app',i:'📱',l:'App'}];
+  var objsGoogle=[{k:'todos',i:'🌐',l:'Todos'},{k:'google_pesquisa',i:'🔎',l:'Pesquisa'},
+    {k:'google_pmax',i:'🚀',l:'Performance Max'},{k:'google_display',i:'🖼',l:'Display'},
+    {k:'google_shopping',i:'🛍',l:'Shopping'},{k:'google_video',i:'▶️',l:'Vídeo (YouTube)'},
+    {k:'google_app',i:'📱',l:'App'}];
+  var objs = W.plat==='google' ? objsGoogle : objsMeta;
   var oc=objs.map(function(o){return '<div class="ocard '+(W.obj===o.k?'sel':'')+'" onclick="W.obj=\''+o.k+'\';document.querySelectorAll(\'.ocard\').forEach(e=>e.classList.remove(\'sel\'));this.classList.add(\'sel\')"><span style="font-size:18px">'+o.i+'</span>'+o.l+'</div>';}).join('');
 
 
@@ -1302,7 +1336,7 @@ function s2(){
       } else if(_campFilter === 'last5'){
         _renderCamps = W._campaigns.slice(0,5);
       }
-      var items=_renderCamps.map(function(camp){
+      var items=ordenarCampanhasPorStatus(_renderCamps).map(function(camp){
         return buildCampItem(camp, W.camp_ids, W.adset_ids||[]);
       }).join('');
       // Botões de filtro rápido
@@ -1390,17 +1424,21 @@ function toggleAdset(cb){
 /* ===== S3: Mensagem + Var Picker ===== */
 function s3(){
   var tplOpts='<option value="">— Sem template —</option>';
-  TEMPLATES.forEach(function(t){tplOpts+='<option value="'+esc(t.content)+'">'+esc(t.name)+'</option>';});
+  // Mostra os templates universais (sem plataforma definida) + os específicos da
+  // plataforma escolhida no wizard. Não mistura template feito só pra Google
+  // dentro da tela de um relatório da Meta, e vice-versa.
+  TEMPLATES.filter(function(t){return !t.platform || t.platform===W.plat;})
+    .forEach(function(t){tplOpts+='<option value="'+esc(t.content)+'">'+esc(t.name)+'</option>';});
   var prev=renderPrev(W.msg);
   return '<div style="display:grid;grid-template-columns:1fr 280px;gap:16px;height:460px">'+
     '<div style="display:flex;flex-direction:column;gap:8px">'+
     '<div><label class="form-label">Template de mensagem</label><select class="form-control" onchange="if(this.value){document.getElementById(\'wMsg\').value=this.value;updPrev();}">'+tplOpts+'</select></div>'+
     '<div>'+
     '<label class="form-label" style="margin-top:8px">Template do PDF</label>'+
-    (PDF_TEMPLATES && PDF_TEMPLATES.length > 0
+    (PDF_TEMPLATES && PDF_TEMPLATES.filter(function(t){return !t.platform || t.platform===W.plat;}).length > 0
       ? '<select id="wPdfTpl" class="form-control" onchange="W.pdf_tpl_id=parseInt(this.value)||0">'+
         '<option value="0"'+(W.pdf_tpl_id?'':' selected')+'>— Selecione um template —</option>'+
-        PDF_TEMPLATES.map(function(t){return '<option value="'+t.id+'"'+(W.pdf_tpl_id&&W.pdf_tpl_id==t.id?' selected':'')+'>'+esc(t.name)+'</option>';}).join('')+
+        PDF_TEMPLATES.filter(function(t){return !t.platform || t.platform===W.plat;}).map(function(t){return '<option value="'+t.id+'"'+(W.pdf_tpl_id&&W.pdf_tpl_id==t.id?' selected':'')+'>'+esc(t.name)+'</option>';}).join('')+
         '</select>'
       : '<div style="font-size:11px;color:var(--txt3);padding:6px 0">Nenhum template criado. <a href="'+APP_URL+'/reports/pdf-editor" target="_blank" style="color:var(--accent)">Criar agora →</a></div>'
     )+'</div>'+
@@ -1494,8 +1532,13 @@ function insVarFollowup(tag){var ta=document.getElementById('wFollowup');if(!ta)
 function s4(){
   var wpOpts='<option value="">— Selecione WhatsApp —</option>';
   var defaultWpId = INSTANCES.length ? INSTANCES[0].id : null;
+  // Se o whatsapp_id salvo no relatório (ex: de uma instância já apagada) não existir
+  // mais na lista de instâncias conectadas agora, trata como se não tivesse nenhum
+  // salvo e cai pra instância atual, em vez de deixar o campo vazio.
+  var wpIdExisteNaLista = INSTANCES.some(function(w){ return w.id==W.wp_id; });
+  var wpIdEfetivo = (W.wp_id && wpIdExisteNaLista) ? W.wp_id : defaultWpId;
   INSTANCES.forEach(function(w){
-    var isSel = W.wp_id==w.id || (!W.wp_id && w.id==defaultWpId);
+    var isSel = wpIdEfetivo==w.id;
     wpOpts+='<option value="'+w.id+'" '+(isSel?'selected':'')+'>'+esc(w.instance_name)+(w.phone_number?' ('+w.phone_number+')':'')+'</option>';
   });
   var cliOpts='<option value="">— Selecione o cliente —</option>';

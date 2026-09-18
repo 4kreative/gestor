@@ -1,0 +1,15 @@
+# Nunca subir credenciais reais pro repositório
+.env
+.env.*
+!.env.example
+
+# Arquivo de diagnóstico temporário (apagar do servidor depois de usar)
+debug_dashboard.php
+
+# Cache e logs
+*.log
+/tmp/
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db

@@ -6,6 +6,7 @@ $blocks  = !empty($tplData['blocks']) ? $tplData['blocks'] : ['header','kpis','m
 $palette = !empty($tplData['palette']) ? $tplData['palette'] : ['accent'=>'#5B8DEF','bg'=>'#ffffff','txt'=>'#1a1a2e'];
 $tplName = $template['name']   ?? 'Meu Template';
 $bCfgs   = $tplData['blockConfigs'] ?? [];
+$tplPlatform = $tplData['platform'] ?? '';
 $allTemplates = $allTemplates ?? [];
 ?>
 <style>
@@ -84,6 +85,13 @@ hr.pdv{border:none;border-top:1px solid #e8eaf0;margin:3px 0}
     <div class="pr"><label>Fundo</label><input type="color" id="cB" oninput="ap()"></div>
     <div class="pr"><label>Texto</label><input type="color" id="cT" oninput="ap()"></div>
     <div class="pr"><label>Nome</label><input type="text" id="tN" value="<?=e($tplName)?>"></div>
+    <div class="pr"><label>Canal</label>
+      <select id="tPlat" style="flex:1;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--txt)" onchange="if(panelIdx>=0)openPanel(panelIdx,panelKey);">
+        <option value="" <?=$tplPlatform===''?'selected':''?>>Ambos (Meta e Google)</option>
+        <option value="meta" <?=$tplPlatform==='meta'?'selected':''?>>Só Meta Ads</option>
+        <option value="google" <?=$tplPlatform==='google'?'selected':''?>>Só Google Ads</option>
+      </select>
+    </div>
   </div>
 </div>
 
@@ -256,6 +264,18 @@ var allComp=[
   {k:'profile_visit',l:'Visitas Perfil',c:'profile_visit',p:'pProfileVisit',hi:true},
   {k:'cpv',l:'Custo/Visita',c:'cpv',p:'pCpv',hi:false}
 ];
+
+// O Google Ads não tem os conceitos de "Mensagens" (Messenger/WhatsApp) nem
+// "Visitas ao Perfil" (Instagram) — essas 4 chaves (e o custo derivado delas)
+// só aparecem no seletor de métricas quando o Canal do template for Meta ou
+// "Ambos". O resto (Investimento, CTR, CPC, Leads, ROAS etc.) serve pros dois
+// e continua aparecendo sempre.
+var METRICAS_SO_META = ['msgs','cmsg','profile_visit','cpv'];
+function porCanal(lista){
+  var canal = (document.getElementById('tPlat')||{}).value || '';
+  if (canal !== 'google') return lista;
+  return lista.filter(function(o){ return METRICAS_SO_META.indexOf(o.k) === -1; });
+}
 
 var kpiColors={spend:'#e74c3c',impr:'#3498db',clicks:'#9b59b6',ctr:'#27ae60',cpc:'#e67e22',cpm:'#e67e22',reach:'#f39c12',freq:'#1abc9c',msgs:'#2ecc71',leads:'#3498db',roas:'#27ae60',conv:'#27ae60',cpl:'#e74c3c',cmsg:'#e74c3c',profile_visit:'#9b59b6',cpv:'#e74c3c'};
 var metricColors={'spend':'#e74c3c','impressions':'#3498db','clicks':'#9b59b6','reach':'#f39c12','messages':'#2ecc71','ctr':'#27ae60','cpc':'#e67e22','cpm':'#e67e22','profile_visits':'#8e44ad','leads':'#3498db','roas':'#27ae60','conversions':'#27ae60','frequency':'#1abc9c'};
@@ -467,14 +487,14 @@ function openPanel(idx,key){
     // Se nunca configurado, defaults = primeiros 8
     var defaultKpis=['spend','impr','clicks','ctr','cpc','cpm','reach','freq'];
     var cfgHasKeys=Object.keys(c).some(function(k){return allKpis.some(function(o){return o.k===k;});});
-    b.innerHTML='<div class="pp-sec">Métricas a exibir</div>'+allKpis.map(function(o){
+    b.innerHTML='<div class="pp-sec">Métricas a exibir</div>'+porCanal(allKpis).map(function(o){
       var ck=cfgHasKeys?(c[o.k]===true||c[o.k]===1):(defaultKpis.indexOf(o.k)>=0);
       return '<div class="pp-row"><span>'+o.l+'</span><input type="checkbox" '+(ck?'checked':'')+' onchange="toggleMetric(\''+o.k+'\',this.checked)"></div>';
     }).join('');
   } else if(key==='kpis2'){
     var defaultKpis2=['msgs','leads','conv'];
     var cfgHasKeys2=Object.keys(c).some(function(k){return allKpis2.some(function(o){return o.k===k;});});
-    b.innerHTML='<div class="pp-sec">Métricas a exibir</div>'+allKpis2.map(function(o){
+    b.innerHTML='<div class="pp-sec">Métricas a exibir</div>'+porCanal(allKpis2).map(function(o){
       var ck=cfgHasKeys2?(c[o.k]===true||c[o.k]===1):(defaultKpis2.indexOf(o.k)>=0);
       return '<div class="pp-row"><span>'+o.l+'</span><input type="checkbox" '+(ck?'checked':'')+' onchange="toggleMetric(\''+o.k+'\',this.checked)"></div>';
     }).join('');
@@ -516,7 +536,7 @@ function openPanel(idx,key){
     b.innerHTML='<div class="pp-lbl">Rótulo do período anterior</div>'
       +'<input class="pp-inp" id="f_compPeriod" value="'+esc(c2.compPeriod||'Período Anterior')+'" oninput="saveCfgField(\'compPeriod\')" placeholder="Ex: Semana passada, Mês anterior...">'
       +'<div class="pp-sec">Métricas a exibir</div>'
-      +allComp.map(function(o){var ck=c2[o.k]===true||c2[o.k]===1;return '<div class="pp-row"><span>'+o.l+'</span><input type="checkbox" '+(ck?'checked':'')+' onchange="toggleMetric(\''+o.k+'\',this.checked)"></div>';}).join('');
+      +porCanal(allComp).map(function(o){var ck=c2[o.k]===true||c2[o.k]===1;return '<div class="pp-row"><span>'+o.l+'</span><input type="checkbox" '+(ck?'checked':'')+' onchange="toggleMetric(\''+o.k+'\',this.checked)"></div>';}).join('');
   } else if(key==='message'){
     b.innerHTML='<div class="pp-lbl">Texto da mensagem</div>'
       +'<textarea class="pp-ta" id="f_msg" oninput="saveCfgField(\'msg\')" placeholder="Digite a mensagem...">'+(c.msg!==undefined?c.msg:S.msg)+'</textarea>'
@@ -595,7 +615,7 @@ async function saveTemplate(silent){
     if(key==='chart_bar' && !bCfgFinal[i].bar_color1) bCfgFinal[i].bar_color1=pal.accent||'#5B8DEF';
     if(key==='chart' && !bCfgFinal[i].chart_color) bCfgFinal[i].chart_color=pal.accent||'#5B8DEF';
   });
-  var config=JSON.stringify({blocks:blocks,palette:pal,blockConfigs:bCfgFinal});
+  var config=JSON.stringify({blocks:blocks,palette:pal,blockConfigs:bCfgFinal,platform:(document.getElementById('tPlat')||{}).value||''});
   console.log('Salvando config:', config.substring(0,200));
   var fd=new FormData();
   fd.append('_token',CSRF);fd.append('id',TPL_ID);fd.append('name',nm);fd.append('config',config);

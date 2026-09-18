@@ -368,7 +368,12 @@ class AiController {
 
         $wp = $wpId
             ? $db->query("SELECT * FROM whatsapp_instances WHERE id=? AND user_id=?", [$wpId,$uid])->fetch()
-            : $db->query("SELECT * FROM whatsapp_instances WHERE user_id=? AND status='connected' ORDER BY is_default DESC LIMIT 1", [$uid])->fetch();
+            : null;
+        if (!$wp) {
+            // Cai pra instância conectada atual (padrão) se o id enviado não existir
+            // mais (ex: instância antiga apagada e recriada com outro id).
+            $wp = $db->query("SELECT * FROM whatsapp_instances WHERE user_id=? AND status='connected' ORDER BY is_default DESC LIMIT 1", [$uid])->fetch();
+        }
         if (!$wp) { echo json_encode(['success'=>false,'error'=>'Nenhuma instância WhatsApp disponível.']); return; }
 
         // Validação do phone antes de enviar

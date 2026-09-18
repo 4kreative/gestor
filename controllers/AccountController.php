@@ -208,8 +208,24 @@ class AccountController {
                 $key = (string)$as['campaign_id'];
                 $adsetMap[$key][] = $as;
             }
+            // Gasto dos últimos 30 dias por campanha, já sincronizado no banco —
+            // usado só pra avisar quando uma campanha "Ativa" (status) não tem
+            // gasto real recente (ex: todos os conjuntos de anúncio pausados por
+            // dentro, mesmo a campanha em si continuando "Ativa" na Meta).
+            $recentSpend = [];
+            try {
+                $rows = $db->query(
+                    "SELECT campaign_id, SUM(spend) AS total
+                     FROM campaign_metrics
+                     WHERE ad_account_id = ? AND date >= ?
+                     GROUP BY campaign_id",
+                    [$accId, date('Y-m-d', strtotime('-30 days'))]
+                )->fetchAll();
+                foreach ($rows as $r) { $recentSpend[(string)$r['campaign_id']] = (float)$r['total']; }
+            } catch (\Throwable $e) {}
             foreach ($campaigns as &$camp) {
                 $camp['adsets'] = $adsetMap[(string)$camp['id']] ?? [];
+                $camp['recent_spend'] = $recentSpend[(string)$camp['id']] ?? 0;
             }
             unset($camp);
         } else {
@@ -281,8 +297,15 @@ class AccountController {
     public function delete(): void {
         requireAuth(); csrfCheck();
         $uid = currentUser()['id'];
-        Database::getInstance()->query("DELETE FROM ad_accounts WHERE id=? AND user_id=?",[(int)($_POST['id']??0),$uid]);
-        flash('success','Conta removida.');
+        $id  = (int)($_POST['id']??0);
+        $db  = Database::getInstance();
+        // Confirma que a conta é mesmo desse usuário antes de limpar o histórico dela
+        if ($db->query("SELECT id FROM ad_accounts WHERE id=? AND user_id=?", [$id, $uid])->fetch()) {
+            $db->query("DELETE FROM campaign_metrics WHERE ad_account_id=?", [$id]);
+            $db->query("DELETE FROM ai_logs WHERE ad_account_id=?", [$id]);
+            $db->query("DELETE FROM ad_accounts WHERE id=? AND user_id=?", [$id, $uid]);
+        }
+        flash('success','Conta e métricas relacionadas removidas.');
         redirect('/accounts');
     }
 
@@ -295,10 +318,55 @@ class AccountController {
         $count = 0;
         foreach ($ids as $id) {
             if ($id <= 0) continue;
-            $db->query("DELETE FROM ad_accounts WHERE id=? AND user_id=?", [$id, $uid]);
-            $count++;
+            if ($db->query("SELECT id FROM ad_accounts WHERE id=? AND user_id=?", [$id, $uid])->fetch()) {
+                $db->query("DELETE FROM campaign_metrics WHERE ad_account_id=?", [$id]);
+                $db->query("DELETE FROM ai_logs WHERE ad_account_id=?", [$id]);
+                $db->query("DELETE FROM ad_accounts WHERE id=? AND user_id=?", [$id, $uid]);
+                $count++;
+            }
         }
-        flash('success', "{$count} conta(s) removida(s) com sucesso.");
+        flash('success', "{$count} conta(s) e métricas relacionadas removidas com sucesso.");
+        redirect('/accounts');
+    }
+
+    /**
+     * Limpa "lixo" deixado no banco por contas que já foram desconectadas/excluídas
+     * do painel em algum momento (ex: exclusão feita antes desse conserto, ou uma
+     * conta apagada direto no banco). Nunca toca nas contas que ainda existem em
+     * ad_accounts — só apaga campaign_metrics/ai_logs cujo ad_account_id não bate
+     * com nenhuma conta atual desse usuário.
+     */
+    public function cleanOrphans(): void {
+        requireAuth(); csrfCheck();
+        $uid = currentUser()['id'];
+        $db  = Database::getInstance();
+
+        // ad_account_id é uma chave única no sistema inteiro (não só desse usuário),
+        // então "órfão" aqui significa: não existe MAIS ninguém em ad_accounts com
+        // esse id, de nenhum usuário. campaign_metrics não guarda user_id próprio,
+        // por isso a checagem é pelo id em si, não por dono.
+        $validIds = array_column(
+            $db->query("SELECT id FROM ad_accounts")->fetchAll(),
+            'id'
+        );
+        $metricIds = array_column(
+            $db->query("SELECT DISTINCT ad_account_id FROM campaign_metrics")->fetchAll(),
+            'ad_account_id'
+        );
+        $orphanIds = array_values(array_diff($metricIds, $validIds));
+
+        if (empty($orphanIds)) {
+            flash('success', 'Nenhum dado órfão encontrado. Seu banco já está limpo.');
+            redirect('/accounts');
+            return;
+        }
+
+        $phs = implode(',', array_fill(0, count($orphanIds), '?'));
+        $db->query("DELETE FROM campaign_metrics WHERE ad_account_id IN ($phs)", $orphanIds);
+        // ai_logs tem user_id próprio, então aqui já limita ao usuário logado
+        $db->query("DELETE FROM ai_logs WHERE ad_account_id IN ($phs) AND user_id=?", array_merge($orphanIds, [$uid]));
+
+        flash('success', count($orphanIds) . ' conta(s) órfã(s) encontrada(s) — métricas e logs relacionados foram apagados.');
         redirect('/accounts');
     }
 
@@ -401,7 +469,7 @@ class AccountController {
                 $reach = (int)($row['reach'] ?? 0);
                 $impr  = (int)($row['impressions'] ?? 0);
                 $freq  = ($reach > 0 && $impr > 0) ? round($impr/$reach, 2) : (float)($row['frequency'] ?? 0);
-                $roas  = ($spend > 0 && $revenue > 0) ? round($revenue / (float)$row['spend'], 4) : 0;
+                $roas  = ((float)($row['spend'] ?? 0) > 0 && $revenue > 0) ? round($revenue / (float)$row['spend'], 4) : 0;
                 $db->query(
                     "INSERT INTO campaign_metrics
                         (ad_account_id,campaign_id,campaign_name,platform,date,

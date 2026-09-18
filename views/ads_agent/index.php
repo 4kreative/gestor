@@ -297,8 +297,8 @@ async function uploadImageToMeta(file) {
         fd.append('image_name', file.name);
         const res  = await fetch(APP_URL + '/ads-agent/upload-image', { method: 'POST', body: fd });
         const data = await res.json();
-        if (data.ok && data.type === 'video' && data.video_id) resolve({ type: 'video', video_id: data.video_id });
-        else if (data.ok && data.hash) resolve({ type: 'image', hash: data.hash, url: data.url || '' });
+        if (data.ok && data.type === 'video' && data.video_id) resolve({ type: 'video', video_id: data.video_id, platform: data.platform || 'meta' });
+        else if (data.ok && data.hash) resolve({ type: 'image', hash: data.hash, url: data.url || '', platform: data.platform || 'meta' });
         else reject(data.error || 'Falha no upload');
       } catch(err) { reject(err.message); }
     };
@@ -322,13 +322,14 @@ async function sendMsg(){
     try {
       const mediaResult = await uploadImageToMeta(pendingImageFile);
       let mediaNote;
+      var canalNome = mediaResult.platform === 'google' ? 'Google Ads' : 'Meta';
       if (mediaResult.type === 'video') {
-        mediaNote = '[vídeo carregado no Meta — video_id: ' + mediaResult.video_id + ']';
+        mediaNote = '[vídeo carregado no ' + canalNome + ' — video_id: ' + mediaResult.video_id + ']';
       } else {
-        mediaNote = '[imagem carregada no Meta — image_hash: ' + mediaResult.hash + (mediaResult.url ? ' | url: ' + mediaResult.url : '') + ']';
+        mediaNote = '[imagem carregada no ' + canalNome + ' — image_hash: ' + mediaResult.hash + (mediaResult.url ? ' | url: ' + mediaResult.url : '') + ']';
       }
       msg = msg ? msg + '\n' + mediaNote : mediaNote;
-      showToast('✅ Imagem enviada ao Meta!', 'success');
+      showToast('✅ Imagem enviada ao ' + canalNome + '!', 'success');
     } catch(err) {
       showToast('❌ Erro no upload da imagem: ' + err, 'warn');
       document.getElementById('ag-img-uploading').style.display = 'none';

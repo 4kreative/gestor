@@ -184,7 +184,10 @@ foreach ($ids as $rid) {
                 c.name AS client_name, c.company AS client_company
          FROM reports r
          LEFT JOIN ad_accounts aa ON r.ad_account_id = aa.id
-         LEFT JOIN whatsapp_instances wi ON r.whatsapp_id = wi.id
+         LEFT JOIN whatsapp_instances wi ON wi.id = COALESCE(
+                (SELECT id FROM whatsapp_instances WHERE id = r.whatsapp_id LIMIT 1),
+                (SELECT id FROM whatsapp_instances WHERE user_id = r.user_id ORDER BY is_default DESC, id DESC LIMIT 1)
+              )
          LEFT JOIN users u ON r.user_id = u.id
          LEFT JOIN clients c ON r.client_id = c.id
          WHERE r.id = ?

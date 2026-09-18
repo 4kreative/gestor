@@ -160,7 +160,7 @@ var cdPeriodos = [
   {v:'custom',        l:'📅 Personalizado'},
 ];
 
-var cdCurrentId=0, cdCurrentData=null, cdCurrentPeriod='last_30_days';
+var cdCurrentId=0, cdCurrentData=null, cdCurrentPeriod='last_30_days', cdCurrentPlat='meta';
 
 function getCdMetrics(cid) {
   try { var s=localStorage.getItem('cd_metrics_'+cid); if(s) return JSON.parse(s); } catch(e){}
@@ -179,6 +179,11 @@ async function openClientDash(id, name) {
   await loadClientDash(id, cdCurrentPeriod);
 }
 
+function cdSetPlat(plat) {
+  cdCurrentPlat = plat;
+  if (cdCurrentData) renderCdDash(cdCurrentData, cdCurrentPeriod);
+}
+
 async function loadClientDash(id, period, customStart, customEnd) {
   document.getElementById('cdBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--txt3)">Carregando...</div>';
   try {
@@ -195,7 +200,13 @@ async function loadClientDash(id, period, customStart, customEnd) {
 }
 
 function renderCdDash(d, period, customStart, customEnd) {
-  var m = d.metricas || {};
+  // Cliente com as duas plataformas: usa a que estiver selecionada no toggle.
+  // Só uma plataforma: usa ela direto, sem mostrar seletor nenhum.
+  if (d.tem_meta && !d.tem_google) cdCurrentPlat = 'meta';
+  else if (!d.tem_meta && d.tem_google) cdCurrentPlat = 'google';
+  var m = (d.tem_meta && d.tem_google)
+    ? (cdCurrentPlat === 'google' ? (d.metricas_google||{}) : (d.metricas_meta||{}))
+    : (d.metricas || {});
   var spend = parseFloat(m.spend||0), clicks = parseInt(m.clicks||0);
   var msgs = parseInt(m.messages||0), leads = parseInt(m.leads||0);
   var x = {cpc:parseFloat(m.cpc||0)||(clicks>0?spend/clicks:0), cmsg:msgs>0?spend/msgs:0, cpl:leads>0?spend/leads:0};
@@ -221,6 +232,22 @@ function renderCdDash(d, period, customStart, customEnd) {
   html += '</select>';
   html += '<button onclick="openCdConfig()" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--txt2);cursor:pointer;white-space:nowrap">⚙️ Métricas</button>';
   html += '</div>';
+
+  // ── Seletor Meta/Google — só aparece se o cliente tiver as duas plataformas ──
+  if (d.tem_meta && d.tem_google) {
+    html += '<div style="display:flex;gap:6px;margin-bottom:12px">';
+    html += '<button onclick="cdSetPlat(\'meta\')" style="flex:1;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;'
+      + (cdCurrentPlat==='meta'
+          ? 'background:var(--accent);color:#fff;border:1px solid var(--accent);font-weight:600'
+          : 'background:var(--bg3);color:var(--txt2);border:1px solid var(--border)')
+      + '">📘 Meta Ads</button>';
+    html += '<button onclick="cdSetPlat(\'google\')" style="flex:1;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;'
+      + (cdCurrentPlat==='google'
+          ? 'background:var(--accent);color:#fff;border:1px solid var(--accent);font-weight:600'
+          : 'background:var(--bg3);color:var(--txt2);border:1px solid var(--border)')
+      + '">🔴 Google Ads</button>';
+    html += '</div>';
+  }
 
   // Datas personalizadas
   html += '<div id="cdCustomDates" style="display:'+(period==='custom'?'flex':'none')+';gap:8px;margin-bottom:10px;align-items:center">';

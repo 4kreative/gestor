@@ -124,9 +124,7 @@ class IntegrationController {
 
         $endpointPath = match($type) {
             'elementor'     => '/api/integrations/elementor',
-            'tintim'        => '/api/integrations/tintim',
             'facebook_lead' => '/api/integrations/facebook_lead',
-            'autentique'    => '/api/integrations/autentique',
             default         => '/api/integrations/webhook',
         };
         $endpointBase = APP_URL . $endpointPath . '?uuid=' . $uuid;
@@ -237,8 +235,11 @@ class IntegrationController {
         $db  = Database::getInstance();
         $row = $db->query(
             "SELECT i.*, i.user_id, wi.instance_name FROM integrations i
-             LEFT JOIN whatsapp_instances wi ON wi.id=i.whatsapp_id
-             WHERE i.uuid=? AND i.type IN ('webhook','autentique') AND i.status='active' LIMIT 1", [$uuid]
+             LEFT JOIN whatsapp_instances wi ON wi.id = COALESCE(
+                (SELECT id FROM whatsapp_instances WHERE id = i.whatsapp_id LIMIT 1),
+                (SELECT id FROM whatsapp_instances WHERE user_id = i.user_id ORDER BY is_default DESC, id DESC LIMIT 1)
+             )
+             WHERE i.uuid=? AND i.type='webhook' AND i.status='active' LIMIT 1", [$uuid]
         )->fetch();
 
         if (!$row) { http_response_code(404); echo 'not found'; exit; }
@@ -252,7 +253,7 @@ class IntegrationController {
             exit;
         }
 
-        // Tenta JSON primeiro, depois form_params (Autentique, RD Station, etc.)
+        // Tenta JSON primeiro, depois form_params
         $body = json_decode($rawBody, true);
         if (empty($body)) {
             parse_str($rawBody, $body);
@@ -261,85 +262,12 @@ class IntegrationController {
             $body = $_POST;
         }
 
-        // Normalização automática para Autentique
-        // Detecta tanto form_params quanto JSON direto da Autentique
-        $isAutentique = (($body['format'] ?? '') === 'form_params' && ($body['object'] ?? '') === 'webhook')
-                     || isset($body['event']['type'])   // JSON direto: { "event": { "type": "signature.accepted" } }
-                     || isset($body['event']['data']);  // JSON direto com estrutura de data
-        if ($isAutentique) {
-            $body = $this->normalizeAutentique($body);
-        }
-
         $this->processAndSend($row, $body);
         http_response_code(200);
         echo json_encode(['ok' => true]);
     }
 
-    // ─── NORMALIZA PAYLOAD DA AUTENTIQUE ──────────────────────
-    private function normalizeAutentique(array $body): array {
-        // Suporta tanto payload form_params quanto JSON direto da Autentique
-        $event     = $body['event'] ?? [];
-        $data      = $event['data'] ?? [];
-        $user      = $data['user'] ?? [];
-        $eventType = $event['type'] ?? '';
-
-        // Fallback: alguns webhooks JSON da Autentique colocam o user direto em $data
-        if (empty($user) && !empty($data['name'])) {
-            $user = $data;
-        }
-
-        // Nome do documento — tenta vários caminhos possíveis da API Autentique
-        $docName = $data['document']['name']
-                ?? $data['name']
-                ?? (is_array($body['document'] ?? null) ? ($body['document']['name'] ?? '') : '')
-                ?? $body['name']
-                ?? '';
-
-        $signedRaw = $data['signed'] ?? '';
-        // Converte UTC para horário de Brasília (UTC-3)
-        if ($signedRaw) {
-            try {
-                $dt = new \DateTime($signedRaw, new \DateTimeZone('UTC'));
-                $dt->setTimezone(new \DateTimeZone('America/Sao_Paulo'));
-                $signedFmt = $dt->format('d/m/Y \\às H:i');
-            } catch (\Exception $e) {
-                $signedFmt = '';
-            }
-        } else {
-            $signedFmt = '';
-        }
-
-        $eventLabel = match($eventType) {
-            'signature.accepted' => '✅ Documento Assinado',
-            'signature.rejected' => '❌ Documento Recusado',
-            'document.viewed'    => '👁️ Documento Visualizado',
-            'document.finished'  => '🎉 Documento Finalizado',
-            default               => $eventType,
-        };
-
-        // Nome do signatário — vários caminhos possíveis
-        $signerName = $user['name']
-                   ?? (is_array($data['signer'] ?? null) ? ($data['signer']['name'] ?? '') : '')
-                   ?? '';
-
-        return array_merge($body, [
-            'signer_name'    => $signerName,
-            'signer_email'   => $user['email'] ?? (is_array($data['signer'] ?? null) ? ($data['signer']['email'] ?? '') : '') ?? '',
-            'signer_cpf'     => $user['cpf']       ?? '',
-            'signer_phone'   => $user['phone']     ?? '',
-            'signer_company' => $user['company']   ?? '',
-            'doc_id'         => $data['public_id'] ?? (is_array($data['document'] ?? null) ? ($data['document']['public_id'] ?? '') : ($data['document'] ?? '')) ?? '',
-            'doc_name'       => $docName,
-            'doc_action'     => $data['action']    ?? '',
-            'doc_signed_at'  => $signedFmt,
-            'doc_created_at' => $data['created_at'] ?? '',
-            'event_type'     => $eventType,
-            'event_label'    => $eventLabel,
-            'webhook_name'   => $docName ?: ($body['name'] ?? ''),
-        ]);
-    }
-
-        // ─── ELEMENTOR ENDPOINT (público) ─────────────────────────
+    // ─── ELEMENTOR ENDPOINT (público) ─────────────────────────
     public function elementorReceive(): void {
         $uuid = sanitize($_GET['uuid'] ?? '');
         if (!$uuid) { http_response_code(400); echo 'invalid'; exit; }
@@ -347,7 +275,10 @@ class IntegrationController {
         $db  = Database::getInstance();
         $row = $db->query(
             "SELECT i.*, wi.instance_name FROM integrations i
-             LEFT JOIN whatsapp_instances wi ON wi.id=i.whatsapp_id
+             LEFT JOIN whatsapp_instances wi ON wi.id = COALESCE(
+                (SELECT id FROM whatsapp_instances WHERE id = i.whatsapp_id LIMIT 1),
+                (SELECT id FROM whatsapp_instances WHERE user_id = i.user_id ORDER BY is_default DESC, id DESC LIMIT 1)
+             )
              WHERE i.uuid=? AND i.type='elementor' AND i.status='active' LIMIT 1", [$uuid]
         )->fetch();
 
@@ -386,44 +317,6 @@ class IntegrationController {
     }
 
     // ─── TINTIM ENDPOINT (público) ────────────────────────────
-    public function tintimReceive(): void {
-        $uuid = sanitize($_GET['uuid'] ?? '');
-        if (!$uuid) { http_response_code(400); echo 'invalid'; exit; }
-
-        $db  = Database::getInstance();
-        $row = $db->query(
-            "SELECT i.*, wi.instance_name FROM integrations i
-             LEFT JOIN whatsapp_instances wi ON wi.id=i.whatsapp_id
-             WHERE i.uuid=? AND i.type='tintim' AND i.status='active' LIMIT 1", [$uuid]
-        )->fetch();
-
-        if (!$row) { http_response_code(404); echo 'not found'; exit; }
-
-        $rawBody = file_get_contents('php://input');
-
-        // CORREÇÃO: valida assinatura HMAC se secret estiver configurado
-        if (!empty($row['secret_key']) && !$this->verificarHmac($rawBody, $row['secret_key'])) {
-            http_response_code(401);
-            echo json_encode(['error' => 'Invalid signature']);
-            exit;
-        }
-
-        $body = json_decode($rawBody, true) ?? [];
-
-        // Normaliza campos do Tintim
-        $normalized = [
-            'lead_name'  => $body['contact']['name'] ?? $body['name'] ?? '',
-            'lead_phone' => $body['contact']['phone'] ?? $body['phone'] ?? '',
-            'lead_email' => $body['contact']['email'] ?? $body['email'] ?? '',
-            'tintim_id'  => $body['uuid'] ?? $body['id'] ?? '',
-            'event'      => $body['event'] ?? 'new_conversation',
-        ];
-        $data = array_merge($body, $normalized);
-
-        $this->processAndSend($row, $data);
-        echo json_encode(['success'=>true]);
-    }
-
     // ─── FACEBOOK LEAD ADS ENDPOINT (público) ─────────────────
     public function facebookLeadReceive(): void {
         // Verificação do webhook do Facebook (GET)
@@ -450,7 +343,10 @@ class IntegrationController {
         $db      = Database::getInstance();
         $row     = $db->query(
             "SELECT i.*, wi.instance_name FROM integrations i
-             LEFT JOIN whatsapp_instances wi ON wi.id=i.whatsapp_id
+             LEFT JOIN whatsapp_instances wi ON wi.id = COALESCE(
+                (SELECT id FROM whatsapp_instances WHERE id = i.whatsapp_id LIMIT 1),
+                (SELECT id FROM whatsapp_instances WHERE user_id = i.user_id ORDER BY is_default DESC, id DESC LIMIT 1)
+             )
              WHERE i.uuid=? AND i.type='facebook_lead' AND i.status='active' LIMIT 1", [$uuid]
         )->fetch();
 
@@ -596,7 +492,6 @@ class IntegrationController {
         $phone = $data['lead_phone'] ?? $data['phone'] ?? '';
 
         return match($type) {
-            'tintim'        => "💬 *Nova conversa no Tintim!*\n\nContato: {$name}\nTelefone: {$phone}",
             'facebook_lead' => "📋 *Novo lead do Facebook Ads!*\n\nNome: {$name}\nEmail: {$email}\nTelefone: {$phone}",
             default         => "🔔 *Novo lead recebido!*\n\nNome: {$name}\nEmail: {$email}\nTelefone: {$phone}",
         };

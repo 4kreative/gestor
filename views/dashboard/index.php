@@ -9,6 +9,29 @@ $_rtDefModel = $_rtAiSettings['ai_default_model']    ?? 'llama-3.1-8b-instant';
 $_rtModels   = AiController::getModels();
 ob_start();
 ?>
+<div style="display:flex;gap:6px;margin-bottom:14px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+  <div style="display:flex;gap:6px">
+  <button type="button" class="db-plat-tab active" onclick="filterDashboardPlat('', this)"
+    style="padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent)">
+    Todos
+  </button>
+  <button type="button" class="db-plat-tab" onclick="filterDashboardPlat('meta', this)"
+    style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;background:var(--bg2);color:var(--txt2);border:1px solid var(--border)">
+    <i class="fa-brands fa-facebook" style="font-size:12px"></i> Meta Ads
+  </button>
+  <button type="button" class="db-plat-tab" onclick="filterDashboardPlat('google', this)"
+    style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;background:var(--bg2);color:var(--txt2);border:1px solid var(--border)">
+    <i class="fa-brands fa-google" style="font-size:12px;color:#EA4335"></i> Google Ads
+  </button>
+  </div>
+  <form method="POST" action="<?= APP_URL ?>/dashboard/refresh-cache"
+        onsubmit="return confirm('Isso limpa o cache de métricas do dashboard e recalcula tudo com dado atual. Pode demorar alguns segundos a mais pra carregar dessa vez. Continuar?');">
+    <input type="hidden" name="_token" value="<?= e($_SESSION['csrf_token']) ?>">
+    <button type="submit" class="btn btn-secondary btn-sm" title="Limpa o cache e recalcula as métricas do dashboard agora">
+      <span class="material-icons-outlined" style="font-size:14px">refresh</span> Atualizar
+    </button>
+  </form>
+</div>
 <?php if (!empty($data['tokens_expiring'])): ?>
 <div style="background:rgba(227,179,65,.12);border:1px solid rgba(227,179,65,.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
   <span style="font-size:16px">⚠️</span>
@@ -308,14 +331,21 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php if(empty($_campanhasProblema)): ?>
       <div style="text-align:center;padding:16px;font-size:12px;color:var(--txt3)">✅ Nenhuma campanha com problema agora</div>
     <?php else: ?>
-      <div style="display:flex;flex-direction:column;gap:5px;max-height:320px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border2,#333) transparent;padding-right:2px">
+      <div id="atRiskList" style="display:flex;flex-direction:column;gap:5px;max-height:320px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border2,#333) transparent;padding-right:2px">
       <?php foreach($_campanhasProblema as $_cp):
         // Cor da borda esquerda baseada na urgência
         $_borderColor = $_cp['urgencia'] >= 80 ? '#e74c3c' : ($_cp['urgencia'] >= 30 ? '#F39C12' : '#8b949e');
       ?>
-        <div style="padding:7px 10px;background:var(--bg3);border-radius:7px;border-left:3px solid <?= $_borderColor ?>">
+        <div class="at-row" data-platform="<?= e($_cp['platform'] ?? 'meta') ?>" style="padding:7px 10px;background:var(--bg3);border-radius:7px;border-left:3px solid <?= $_borderColor ?>">
           <div style="font-size:9px;color:var(--txt3);margin-bottom:1px"><?= e($_cp['client_name']) ?><?php if(!empty($_cp['account_name'])): ?> · <span style="opacity:.7">📣 <?= e($_cp['account_name']) ?></span><?php endif; ?></div>
-          <div style="font-size:11px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px"><?= e($_cp['camp_name']) ?></div>
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:1px">
+            <span style="font-size:11px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><?= e($_cp['camp_name']) ?></span>
+            <?php if (($_cp['platform']??'meta')==='google'): ?>
+              <span style="background:rgba(234,67,53,.15);color:#EA4335;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">G</span>
+            <?php else: ?>
+              <span style="background:rgba(76,141,255,.15);color:#7fb0ff;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">M</span>
+            <?php endif; ?>
+          </div>
           <?php if(!empty($_cp['camp_labels'])): ?><div style="font-size:8px;color:var(--txt3);opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic;margin-bottom:3px">🎯 <?= e($_cp['camp_labels']) ?></div><?php endif; ?>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:<?= count($_cp['issues'])>0 ? '5' : '0' ?>px">
             <?php foreach($_cp['issues'] as $_i): ?>
@@ -324,10 +354,11 @@ document.addEventListener('DOMContentLoaded', function(){
           </div>
           <?php
             // Monta frase de observação com base nos problemas detectados
+            $_ctrFracoLimite = (($_cp['platform']??'meta')==='google') ? '2%' : '1%';
             $_obs = [];
             foreach($_cp['issues'] as $_i) {
               if(strpos($_i['label'],'CTR baixo') !== false)       $_obs[] = 'CTR muito abaixo do ideal nos últimos 7 dias';
-              elseif(strpos($_i['label'],'CTR fraco') !== false)   $_obs[] = 'CTR abaixo de 1% nos últimos 7 dias';
+              elseif(strpos($_i['label'],'CTR fraco') !== false)   $_obs[] = "CTR abaixo de {$_ctrFracoLimite} nos últimos 7 dias";
               elseif(strpos($_i['label'],'Sem entrega') !== false) $_obs[] = 'Sem entrega hoje — verifique saldo ou orçamento';
               elseif(strpos($_i['label'],'Freq. alta') !== false)  $_obs[] = 'Frequência alta — público saturado';
               elseif(strpos($_i['label'],'Freq. elevada') !== false) $_obs[] = 'Frequência elevada — considere novos criativos';
@@ -362,6 +393,7 @@ document.addEventListener('DOMContentLoaded', function(){
             'client'      => $_wm['client_name'] ?? '',
             'account'     => $_wm['account_name'] ?? '',
             'camp_labels' => $_wm['camp_labels'] ?? '',
+            'platform'    => $_wm['platform'] ?? 'meta',
             'spent'       => (float)($_wm['spend_total'] ?? $_wm['spend']),
             'budget'      => 0,
             'period'      => 'Desde o início',
@@ -373,15 +405,36 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php if(empty($budgetContas)): ?>
       <div style="text-align:center;padding:16px;font-size:12px;color:var(--txt3)">Sem dados de budget</div>
     <?php else: ?>
+      <?php
+        $_qtdMB = count(array_filter($budgetContas, fn($r)=>$r['platform']==='meta'));
+        $_qtdGB = count(array_filter($budgetContas, fn($r)=>$r['platform']==='google'));
+      ?>
+      <?php if ($_qtdMB > 0 && $_qtdGB > 0): ?>
+      <div style="display:flex;gap:5px;margin-bottom:8px">
+        <button type="button" class="bg-tab active" onclick="filterBudgetPlat('', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent)">Todos</button>
+        <button type="button" class="bg-tab" onclick="filterBudgetPlat('meta', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;background:var(--bg3);color:var(--txt2);border:1px solid var(--border)">Meta</button>
+        <button type="button" class="bg-tab" onclick="filterBudgetPlat('google', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;background:var(--bg3);color:var(--txt2);border:1px solid var(--border)">Google</button>
+      </div>
+      <?php endif; ?>
       <div id="budgetList" style="display:flex;flex-direction:column;gap:10px;max-height:280px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border2,#333) transparent;padding-right:2px">
       <?php foreach($budgetContas as $_bi => $_b):
         $_pct  = $_b['budget'] > 0 ? min(100, round(($_b['spent']/$_b['budget'])*100)) : 0;
         $_color = $_pct >= 90 ? '#E74C3C' : ($_pct >= 70 ? '#F39C12' : '#1f6feb');
       ?>
-        <div>
+        <div class="bg-row" data-platform="<?= e($_b['platform']) ?>">
           <div style="display:flex;justify-content:space-between;margin-bottom:4px">
             <div style="display:flex;flex-direction:column;max-width:140px;overflow:hidden">
-              <span style="font-size:11px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_b['name']) ?></span>
+              <span style="display:flex;align-items:center;gap:4px">
+                <span style="font-size:11px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_b['name']) ?></span>
+                <?php if ($_b['platform']==='google'): ?>
+                  <span style="background:rgba(234,67,53,.15);color:#EA4335;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">G</span>
+                <?php else: ?>
+                  <span style="background:rgba(76,141,255,.15);color:#7fb0ff;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">M</span>
+                <?php endif; ?>
+              </span>
               <?php if(!empty($_b['client'])): ?><span style="font-size:9px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_b['client']) ?></span><?php endif; ?>
               <?php if(!empty($_b['account']) && $_b['account'] !== $_b['name']): ?><span style="font-size:9px;color:var(--txt3);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📣 <?= e($_b['account']) ?></span><?php endif; ?>
               <?php if(!empty($_b['camp_labels'])): ?><span style="font-size:8px;color:var(--txt3);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic">🎯 <?= e($_b['camp_labels']) ?></span><?php endif; ?>
@@ -426,6 +479,7 @@ document.addEventListener('DOMContentLoaded', function(){
             'client'      => $_wm['client_name'] ?? '',
             'account'     => $_wm['account_name'] ?? '',
             'camp_labels' => $_wm['camp_labels'] ?? '',
+            'platform'    => $_wm['platform'] ?? 'meta',
             'chg'         => $chg,
             'spark'       => $spark,
             'color'       => $colors[$_i % count($colors)],
@@ -437,15 +491,36 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php if(empty($weekData)): ?>
       <div style="text-align:center;padding:16px;font-size:12px;color:var(--txt3)">Sem dados comparativos</div>
     <?php else: ?>
+      <?php
+        $_qtdMW = count(array_filter($weekData, fn($r)=>$r['platform']==='meta'));
+        $_qtdGW = count(array_filter($weekData, fn($r)=>$r['platform']==='google'));
+      ?>
+      <?php if ($_qtdMW > 0 && $_qtdGW > 0): ?>
+      <div style="display:flex;gap:5px;margin-bottom:8px">
+        <button type="button" class="wk-tab active" onclick="filterWeekPlat('', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent)">Todos</button>
+        <button type="button" class="wk-tab" onclick="filterWeekPlat('meta', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;background:var(--bg3);color:var(--txt2);border:1px solid var(--border)">Meta</button>
+        <button type="button" class="wk-tab" onclick="filterWeekPlat('google', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;background:var(--bg3);color:var(--txt2);border:1px solid var(--border)">Google</button>
+      </div>
+      <?php endif; ?>
       <div id="weekList" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border2,#333) transparent;padding-right:2px">
       <?php foreach($weekData as $_wi => $_w):
         $_max = max(array_filter($_w['spark']) ?: [1]);
         $_chgColor = $_w['chg'] >= 0 ? '#1ABC9C' : '#E74C3C';
         $_chgSign  = $_w['chg'] >= 0 ? '+' : '';
       ?>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div class="wk-row" data-platform="<?= e($_w['platform']) ?>" style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
           <div style="flex:1;min-width:0;overflow:hidden">
-            <div style="font-size:10px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_w['label']) ?></div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="font-size:10px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_w['label']) ?></span>
+              <?php if ($_w['platform']==='google'): ?>
+                <span style="background:rgba(234,67,53,.15);color:#EA4335;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">G</span>
+              <?php else: ?>
+                <span style="background:rgba(76,141,255,.15);color:#7fb0ff;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">M</span>
+              <?php endif; ?>
+            </div>
             <?php if(!empty($_w['client'])): ?><div style="font-size:8px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_w['client']) ?><?php if(!empty($_w['account'])): ?> · 📣 <?= e($_w['account']) ?><?php endif; ?></div><?php endif; ?>
             <?php if(!empty($_w['camp_labels'])): ?><div style="font-size:8px;color:var(--txt3);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic">🎯 <?= e($_w['camp_labels']) ?></div><?php endif; ?>
           </div>
@@ -485,6 +560,7 @@ document.addEventListener('DOMContentLoaded', function(){
             'client'      => $_wm['client_name'] ?? '',
             'account'     => $_wm['account_name'] ?? '',
             'camp_labels' => $_wm['camp_labels'] ?? '',
+            'platform'    => $_wm['platform'] ?? 'meta',
             'lbl'         => $_lbl,
             'val'         => $_val,
             'color'       => $_color,
@@ -497,12 +573,33 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php if(empty($rankCamps)): ?>
       <div style="text-align:center;padding:16px;font-size:12px;color:var(--txt3)">Sem dados de ranking</div>
     <?php else: ?>
-      <div style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border2,#333) transparent;padding-right:2px">
+      <?php
+        $_qtdM = count(array_filter($rankCamps, fn($r)=>$r['platform']==='meta'));
+        $_qtdG = count(array_filter($rankCamps, fn($r)=>$r['platform']==='google'));
+      ?>
+      <?php if ($_qtdM > 0 && $_qtdG > 0): ?>
+      <div style="display:flex;gap:5px;margin-bottom:8px">
+        <button type="button" class="rk-tab active" onclick="filterRankPlat('', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent)">Todos</button>
+        <button type="button" class="rk-tab" onclick="filterRankPlat('meta', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;background:var(--bg3);color:var(--txt2);border:1px solid var(--border)">Meta</button>
+        <button type="button" class="rk-tab" onclick="filterRankPlat('google', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;background:var(--bg3);color:var(--txt2);border:1px solid var(--border)">Google</button>
+      </div>
+      <?php endif; ?>
+      <div style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border2,#333) transparent;padding-right:2px" id="rankCampList">
       <?php foreach($rankCamps as $_i=>$_r): ?>
-        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div class="rk-row" data-platform="<?= e($_r['platform']) ?>" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
           <div style="width:18px;height:18px;border-radius:4px;background:var(--bg4);font-size:9px;font-weight:700;color:<?= $_r['color'] ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0"><?= $_i+1 ?></div>
           <div style="flex:1;min-width:0;overflow:hidden">
-            <div style="font-size:10px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_r['name']) ?></div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="font-size:10px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_r['name']) ?></span>
+              <?php if ($_r['platform']==='google'): ?>
+                <span style="background:rgba(234,67,53,.15);color:#EA4335;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">G</span>
+              <?php else: ?>
+                <span style="background:rgba(76,141,255,.15);color:#7fb0ff;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">M</span>
+              <?php endif; ?>
+            </div>
             <?php if(!empty($_r['client'])): ?><div style="font-size:8px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_r['client']) ?><?php if(!empty($_r['account'])): ?> · 📣 <?= e($_r['account']) ?><?php endif; ?></div><?php endif; ?>
             <?php if(!empty($_r['camp_labels'])): ?><div style="font-size:8px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;opacity:.8">🎯 <?= e($_r['camp_labels']) ?></div><?php endif; ?>
           </div>
@@ -531,6 +628,7 @@ document.addEventListener('DOMContentLoaded', function(){
             'client'      => $_wm['client_name'] ?? '',
             'account'     => $_wm['account_name'] ?? '',
             'camp_labels' => $_wm['camp_labels'] ?? '',
+            'platform'    => $_wm['platform'] ?? 'meta',
             'score'       => $score,
             'label'       => $_label,
             'color'       => $_color,
@@ -544,10 +642,31 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php if(empty($scoreClients)): ?>
       <div style="text-align:center;padding:16px;font-size:12px;color:var(--txt3)">Sem dados de score</div>
     <?php else: ?>
+      <?php
+        $_qtdMS = count(array_filter($scoreClients, fn($r)=>$r['platform']==='meta'));
+        $_qtdGS = count(array_filter($scoreClients, fn($r)=>$r['platform']==='google'));
+      ?>
+      <?php if ($_qtdMS > 0 && $_qtdGS > 0): ?>
+      <div style="display:flex;gap:5px;margin-bottom:8px">
+        <button type="button" class="sc-tab active" onclick="filterScorePlat('', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent)">Todos</button>
+        <button type="button" class="sc-tab" onclick="filterScorePlat('meta', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;background:var(--bg3);color:var(--txt2);border:1px solid var(--border)">Meta</button>
+        <button type="button" class="sc-tab" onclick="filterScorePlat('google', this)"
+          style="padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;background:var(--bg3);color:var(--txt2);border:1px solid var(--border)">Google</button>
+      </div>
+      <?php endif; ?>
       <div id="scoreList" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:380px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border2,#333) transparent;padding-right:2px">
       <?php foreach($scoreClients as $_si => $_sc): ?>
-        <div style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
-          <div style="font-size:10px;font-weight:600;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:1px"><?= e($_sc['name']) ?></div>
+        <div class="sc-card" data-platform="<?= e($_sc['platform']) ?>" style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:1px">
+            <span style="font-size:10px;font-weight:600;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($_sc['name']) ?></span>
+            <?php if ($_sc['platform']==='google'): ?>
+              <span style="background:rgba(234,67,53,.15);color:#EA4335;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">G</span>
+            <?php else: ?>
+              <span style="background:rgba(76,141,255,.15);color:#7fb0ff;font-size:7px;padding:1px 5px;border-radius:20px;flex-shrink:0">M</span>
+            <?php endif; ?>
+          </div>
           <?php if(!empty($_sc['client'])): ?><div style="font-size:8px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:1px"><?= e($_sc['client']) ?></div><?php endif; ?>
           <?php if(!empty($_sc['account'])): ?><div style="font-size:8px;color:var(--txt3);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📣 <?= e($_sc['account']) ?></div><?php endif; ?>
           <?php if(!empty($_sc['camp_labels'])): ?><div style="font-size:7px;color:var(--txt3);opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;margin-bottom:4px">🎯 <?= e($_sc['camp_labels']) ?></div><?php else: ?><div style="margin-bottom:4px"></div><?php endif; ?>
@@ -564,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <div class="db-card-hd">
       <div>
         <div class="db-card-title">💰 Saldo Pré-pago</div>
-        <div class="db-card-sub">Dias restantes por cliente</div>
+        <div class="db-card-sub">Dias restantes por cliente (contas Meta Ads)</div>
       </div>
       <button onclick="document.getElementById('modal-recarga').style.display='flex'"
         style="background:var(--accent);border:none;border-radius:6px;padding:3px 10px;font-size:11px;color:#fff;cursor:pointer;font-weight:600">+ Recarga</button>
@@ -729,6 +848,84 @@ document.addEventListener('DOMContentLoaded', function(){
   </div>
 </div>
 <script>
+function filterRankPlat(plat, btnEl) {
+  document.querySelectorAll('.rk-tab').forEach(function(b){
+    b.style.background = 'var(--bg3)'; b.style.color = 'var(--txt2)'; b.style.borderColor = 'var(--border)'; b.style.fontWeight = 'normal';
+  });
+  btnEl.style.background = 'var(--accent)'; btnEl.style.color = '#fff'; btnEl.style.borderColor = 'var(--accent)'; btnEl.style.fontWeight = '600';
+  document.querySelectorAll('#rankCampList .rk-row').forEach(function(row){
+    row.style.display = (!plat || row.dataset.platform === plat) ? '' : 'none';
+  });
+}
+function filterScorePlat(plat, btnEl) {
+  document.querySelectorAll('.sc-tab').forEach(function(b){
+    b.style.background = 'var(--bg3)'; b.style.color = 'var(--txt2)'; b.style.borderColor = 'var(--border)'; b.style.fontWeight = 'normal';
+  });
+  btnEl.style.background = 'var(--accent)'; btnEl.style.color = '#fff'; btnEl.style.borderColor = 'var(--accent)'; btnEl.style.fontWeight = '600';
+  document.querySelectorAll('#scoreList .sc-card').forEach(function(card){
+    card.style.display = (!plat || card.dataset.platform === plat) ? '' : 'none';
+  });
+}
+function filterBudgetPlat(plat, btnEl) {
+  document.querySelectorAll('.bg-tab').forEach(function(b){
+    b.style.background = 'var(--bg3)'; b.style.color = 'var(--txt2)'; b.style.borderColor = 'var(--border)'; b.style.fontWeight = 'normal';
+  });
+  btnEl.style.background = 'var(--accent)'; btnEl.style.color = '#fff'; btnEl.style.borderColor = 'var(--accent)'; btnEl.style.fontWeight = '600';
+  document.querySelectorAll('#budgetList .bg-row').forEach(function(row){
+    row.style.display = (!plat || row.dataset.platform === plat) ? '' : 'none';
+  });
+}
+function filterWeekPlat(plat, btnEl) {
+  document.querySelectorAll('.wk-tab').forEach(function(b){
+    b.style.background = 'var(--bg3)'; b.style.color = 'var(--txt2)'; b.style.borderColor = 'var(--border)'; b.style.fontWeight = 'normal';
+  });
+  btnEl.style.background = 'var(--accent)'; btnEl.style.color = '#fff'; btnEl.style.borderColor = 'var(--accent)'; btnEl.style.fontWeight = '600';
+  document.querySelectorAll('#weekList .wk-row').forEach(function(row){
+    row.style.display = (!plat || row.dataset.platform === plat) ? '' : 'none';
+  });
+}
+function filterDashboardPlat(plat, btnEl) {
+  // Atualiza os botões do seletor global
+  document.querySelectorAll('.db-plat-tab').forEach(function(b){
+    b.style.background = 'var(--bg2)'; b.style.color = 'var(--txt2)'; b.style.borderColor = 'var(--border)'; b.style.fontWeight = 'normal';
+  });
+  btnEl.style.background = 'var(--accent)'; btnEl.style.color = '#fff'; btnEl.style.borderColor = 'var(--accent)'; btnEl.style.fontWeight = '600';
+
+  // Filtra direto as linhas/cards de cada widget que já tem data-platform
+  var listas = [
+    {list: 'rankCampList',  sel: '.rk-row'},
+    {list: 'scoreList',     sel: '.sc-card'},
+    {list: 'budgetList',    sel: '.bg-row'},
+    {list: 'weekList',      sel: '.wk-row'},
+    {list: 'atRiskList',    sel: '.at-row'}
+  ];
+  listas.forEach(function(w){
+    var container = document.getElementById(w.list);
+    if (!container) return;
+    container.querySelectorAll(w.sel).forEach(function(row){
+      row.style.display = (!plat || row.dataset.platform === plat) ? '' : 'none';
+    });
+  });
+
+  // Sincroniza visualmente as abas de cada widget individual, se existirem
+  var gruposLocais = [
+    {tabClass:'rk-tab', fn:'filterRankPlat'},
+    {tabClass:'sc-tab', fn:'filterScorePlat'},
+    {tabClass:'bg-tab', fn:'filterBudgetPlat'},
+    {tabClass:'wk-tab', fn:'filterWeekPlat'}
+  ];
+  gruposLocais.forEach(function(g){
+    document.querySelectorAll('.'+g.tabClass).forEach(function(tab){
+      var ehTodos  = plat === '' && tab.textContent.trim() === 'Todos';
+      var ehIgual  = plat !== '' && tab.textContent.trim().toLowerCase().indexOf(plat) === 0;
+      if (ehTodos || ehIgual) {
+        tab.style.background = 'var(--accent)'; tab.style.color = '#fff'; tab.style.borderColor = 'var(--accent)'; tab.style.fontWeight = '600';
+      } else {
+        tab.style.background = 'var(--bg3)'; tab.style.color = 'var(--txt2)'; tab.style.borderColor = 'var(--border)'; tab.style.fontWeight = 'normal';
+      }
+    });
+  });
+}
 function registrarRecarga() {
   const clientId = document.getElementById('rc-client').value;
   const valor    = document.getElementById('rc-valor').value;
@@ -1806,10 +2003,12 @@ function registrarRecarga() {
     var instDot=document.createElement('div');instDot.className='rt-inst-dot';
     var instSel=document.createElement('select');instSel.className='rt-wa-sel';instSel.id='rtWaInst';
     var iOpt=document.createElement('option');iOpt.value='';iOpt.textContent='— Selecione —';instSel.appendChild(iOpt);
+    var wpIdExisteNaLista=(d.instances||[]).some(function(i){return String(i.id)===String(d.wp_id);});
+    var wpIdEfetivo=(d.wp_id && wpIdExisteNaLista)?d.wp_id:((d.instances&&d.instances[0])?d.instances[0].id:'');
     (d.instances||[]).forEach(function(i){
       var o=document.createElement('option');o.value=i.id;
       o.textContent=i.instance_name+' · '+(i.phone_number||'');
-      if(String(i.id)===String(d.wp_id))o.selected=true;
+      if(String(i.id)===String(wpIdEfetivo))o.selected=true;
       instSel.appendChild(o);
     });
     instRow.appendChild(instDot);instRow.appendChild(instSel);

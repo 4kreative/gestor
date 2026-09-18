@@ -147,7 +147,10 @@ foreach ($alertIds as $alertId) {
                 $clientCols
          FROM alerts a
          LEFT JOIN ad_accounts aa ON a.ad_account_id = aa.id
-         LEFT JOIN whatsapp_instances wi ON a.whatsapp_id = wi.id
+         LEFT JOIN whatsapp_instances wi ON wi.id = COALESCE(
+                (SELECT id FROM whatsapp_instances WHERE id = a.whatsapp_id LIMIT 1),
+                (SELECT id FROM whatsapp_instances WHERE user_id = a.user_id ORDER BY is_default DESC, id DESC LIMIT 1)
+              )
          $clientJoin
          WHERE a.id = ? AND a.ativo = 1
          FOR UPDATE",
@@ -207,14 +210,27 @@ foreach ($alertIds as $alertId) {
                 // Usa o mesmo calcPeriodDates do ReportController — igual ao relatório
                 $periodType = $alert['period_type'] ?? 'last_7_days';
                 [$mStart, $mEnd] = ReportController::calcPeriodDates($periodType);
+                $isGoogleAlert = (($alert['platform'] ?? 'meta') === 'google');
                 // Para período MAX: busca campanhas ATIVAS, pega o start_time da mais antiga
                 // e filtra métricas por essas campanhas — igual ao dashboard/relatório
+                // (Google não tem esse recurso de "campanha ativa mais antiga" via live-fetch,
+                // usa só um período largo de 365 dias como início.)
                 $alertCampIds = [];
                 if ($mStart === 'MAX') {
-                    [$mStart, $alertCampIds] = fetchActiveCampaignsAndStartDate($alert['account_id'], $alert['access_token']);
-                    $log[] = "  Período MAX: início campanha ativa = $mStart | camps=" . (empty($alertCampIds) ? 'todas' : implode(',', $alertCampIds));
+                    if ($isGoogleAlert) {
+                        $mStart = date('Y-m-d', strtotime('-365 days'));
+                    } else {
+                        [$mStart, $alertCampIds] = fetchActiveCampaignsAndStartDate($alert['account_id'], $alert['access_token']);
+                        $log[] = "  Período MAX: início campanha ativa = $mStart | camps=" . (empty($alertCampIds) ? 'todas' : implode(',', $alertCampIds));
+                    }
                 }
                 try {
+                    if ($isGoogleAlert) {
+                        // Google Ads: sem live-fetch próprio para alerta ainda. Usa o dado já
+                        // sincronizado em campaign_metrics pelo cron de métricas (syncGoogle).
+                        $mData = ReportController::fetchMetricsFromDB((int)($alert['ad_account_id'] ?? 0), $mStart, $mEnd);
+                        $log[] = "  [Google] Período: $periodType ($mStart a $mEnd) | spend=" . ($mData ? 'R$ '.(float)($mData['spend']??0) : 'sem dados sincronizados ainda');
+                    } else {
                     $diasPeriodo = (int)((strtotime($mEnd) - strtotime($mStart)) / 86400);
                     // Usa os IDs das campanhas ativas como filtro (igual ao relatório)
                     if (!empty($alertCampIds)) {
@@ -242,8 +258,12 @@ foreach ($alertIds as $alertId) {
                         }
                     }
 
+                    }
+
                     if (!$mData) {
-                        $log[] = "  SKIP: sem dados na API Meta para o período $periodType ($mStart a $mEnd) — nem nos períodos de fallback";
+                        $log[] = $isGoogleAlert
+                            ? "  SKIP: sem dados sincronizados em campaign_metrics para essa conta Google no período $periodType ($mStart a $mEnd)"
+                            : "  SKIP: sem dados na API Meta para o período $periodType ($mStart a $mEnd) — nem nos períodos de fallback";
                     } else {
                         // Usa EXATAMENTE o mesmo cálculo do buildMessage/relatório
                         // para garantir que o valor do alerta bate com o exibido no relatório

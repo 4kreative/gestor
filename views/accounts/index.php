@@ -11,9 +11,16 @@ ob_start();
     <button class="btn btn-primary" onclick="openMetaModal()">
       <i class="fa-brands fa-facebook"></i> Conectar Meta Ads
     </button>
-    <span class="btn btn-secondary" style="border-color:#ccc;color:#999;cursor:not-allowed;opacity:.6;pointer-events:none" title="Em breve">
-      <i class="fa-brands fa-google"></i> Google Ads — Em breve
-    </span>
+    <a href="<?= APP_URL ?>/accounts/connect/google" class="btn btn-secondary" style="border-color:#EA4335;color:#EA4335">
+      <i class="fa-brands fa-google"></i> Conectar Google Ads
+    </a>
+    <form method="POST" action="<?= APP_URL ?>/accounts/clean-orphans" style="display:inline"
+          onsubmit="return confirm('Isso apaga do banco todas as métricas e logs de IA de contas que já não existem mais no painel (excluídas antes, ou removidas direto no banco). Contas que ainda aparecem na lista acima NÃO são afetadas. Continuar?');">
+      <input type="hidden" name="_token" value="<?= e($_SESSION['csrf_token']) ?>">
+      <button type="submit" class="btn btn-secondary btn-sm" title="Remove métricas e logs de contas que não existem mais no painel">
+        <span class="material-icons-outlined" style="font-size:14px">cleaning_services</span> Limpar Lixo do Banco
+      </button>
+    </form>
   </div>
 </div>
 
@@ -31,6 +38,26 @@ ob_start();
   </div>
 </div>
 <?php else: ?>
+<?php
+  $qtdMeta   = count(array_filter($accounts, fn($a) => ($a['platform']??'meta') === 'meta'));
+  $qtdGoogle = count(array_filter($accounts, fn($a) => ($a['platform']??'meta') === 'google'));
+?>
+<!-- Abas por canal -->
+<div style="display:flex;gap:6px;margin-bottom:12px">
+  <button type="button" class="acc-tab active" data-plat="" onclick="filterPlatform('', this)"
+    style="padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent)">
+    Todos (<?= count($accounts) ?>)
+  </button>
+  <button type="button" class="acc-tab" data-plat="meta" onclick="filterPlatform('meta', this)"
+    style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;background:var(--bg2);color:var(--txt2);border:1px solid var(--border)">
+    <i class="fa-brands fa-facebook" style="font-size:12px"></i> Meta Ads (<?= $qtdMeta ?>)
+  </button>
+  <button type="button" class="acc-tab" data-plat="google" onclick="filterPlatform('google', this)"
+    style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;background:var(--bg2);color:var(--txt2);border:1px solid var(--border)">
+    <i class="fa-brands fa-google" style="font-size:12px;color:#EA4335"></i> Google Ads (<?= $qtdGoogle ?>)
+  </button>
+</div>
+
 <!-- Campo de busca -->
 <div style="margin-bottom:10px">
   <div style="position:relative">
@@ -67,7 +94,7 @@ ob_start();
     </thead>
     <tbody>
       <?php foreach ($accounts as $a): ?>
-      <tr>
+      <tr data-platform="<?= e($a['platform']) ?>">
         <td style="width:36px">
           <input type="checkbox" name="del_ids[]" value="<?= $a['id'] ?>" class="row-check"
             style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent)">
@@ -244,6 +271,16 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeMetaM
 var APP_URL = '<?= APP_URL ?>';
 var CSRF = '<?= e($_SESSION["csrf_token"]) ?>';
 
+var currentPlatFilter = '';
+function filterPlatform(plat, btnEl) {
+  currentPlatFilter = plat;
+  document.querySelectorAll('.acc-tab').forEach(function(b){
+    b.style.background = 'var(--bg2)'; b.style.color = 'var(--txt2)'; b.style.borderColor = 'var(--border)'; b.style.fontWeight = 'normal';
+  });
+  btnEl.style.background = 'var(--accent)'; btnEl.style.color = '#fff'; btnEl.style.borderColor = 'var(--accent)'; btnEl.style.fontWeight = '600';
+  filterAccounts(document.getElementById('accountSearch').value);
+}
+
 function filterAccounts(q) {
   var rows = document.querySelectorAll('tbody tr');
   var val = q.trim().toLowerCase();
@@ -252,9 +289,11 @@ function filterAccounts(q) {
     var text = row.textContent.toLowerCase();
     // Fuzzy: check if all words in query appear somewhere in the row
     var words = val.split(/\s+/).filter(Boolean);
-    var match = words.every(function(w) { return text.includes(w); });
-    row.style.display = (!val || match) ? '' : 'none';
-    if (!val || match) shown++;
+    var matchText = words.every(function(w) { return text.includes(w); });
+    var matchPlat = !currentPlatFilter || row.dataset.platform === currentPlatFilter;
+    var match = matchText && matchPlat;
+    row.style.display = match ? '' : 'none';
+    if (match) shown++;
   });
   var info = document.getElementById('searchInfo');
   if (val) {

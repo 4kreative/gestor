@@ -139,7 +139,10 @@ class AlertController {
                     wi.instance_name $clientCols
              FROM alerts a
              LEFT JOIN ad_accounts aa ON a.ad_account_id = aa.id
-             LEFT JOIN whatsapp_instances wi ON a.whatsapp_id = wi.id
+             LEFT JOIN whatsapp_instances wi ON wi.id = COALESCE(
+                    (SELECT id FROM whatsapp_instances WHERE id = a.whatsapp_id LIMIT 1),
+                    (SELECT id FROM whatsapp_instances WHERE user_id = a.user_id ORDER BY is_default DESC, id DESC LIMIT 1)
+                  )
              $clientJoin
              WHERE a.id=? AND a.user_id=?",
             [$id, $uid]
@@ -175,6 +178,11 @@ class AlertController {
             // Busca métricas para tipos de performance
             $periodType = $alert['period_type'] ?? 'last_7_days';
             [$mStart, $mEnd] = ReportController::calcPeriodDates($periodType);
+            if (($alert['platform'] ?? 'meta') === 'google') {
+                // Google Ads: não tem live-fetch próprio para alerta, usa o mesmo dado
+                // já sincronizado pelo cron em campaign_metrics (populado pelo syncGoogle).
+                $mData = ReportController::fetchMetricsFromDB((int)($alert['ad_account_id'] ?? 0), $mStart, $mEnd) ?? [];
+            } else {
             if ($mStart === 'MAX') {
                 $mStart = ReportController::fetchCampaignStartDate($alert['account_id'], $alert['access_token'], [], (int)($alert['ad_account_id'] ?? 0));
             }
@@ -189,6 +197,7 @@ class AlertController {
                     if (empty($mData)) $mData = ReportController::fetchMetricsMeta($alert['account_id'], $alert['access_token'], $fbStart, $fbEnd, []) ?? [];
                     if (!empty($mData)) { $mStart = $fbStart; $mEnd = $fbEnd; break; }
                 }
+            }
             }
         }
 
